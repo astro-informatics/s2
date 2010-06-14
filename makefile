@@ -28,16 +28,16 @@ OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5
 
 # ======== LINKS ========
 
-PROGDIR = /Users/jasonmcewen/Prog
+PROGDIR = ..
 
-HPIXDIR = $(PROGDIR)/Healpix_2.01
+HPIXDIR = $(PROGDIR)/Healpix
 HPIXLIB = $(HPIXDIR)/lib
 HPIXLIBNM= healpix
 HPIXINC = $(HPIXDIR)/include
 
-S2DIR  = $(PROGDIR)/s2lite-1.0
+S2DIR  = $(PROGDIR)/s2
 S2LIB  = $(S2DIR)/lib
-S2LIBNM= s2lite
+S2LIBNM= s2
 S2INC  = $(S2DIR)/include
 S2SRC  = $(S2DIR)/src/mod
 S2PROG = $(S2DIR)/src/prog
