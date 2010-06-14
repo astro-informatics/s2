@@ -28,7 +28,7 @@ OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5
 
 # ======== LINKS ========
 
-PROGDIR = ..
+PROGDIR = /home/jdm57/src
 
 HPIXDIR = $(PROGDIR)/Healpix
 HPIXLIB = $(HPIXDIR)/lib
