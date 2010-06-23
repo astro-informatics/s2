@@ -53,7 +53,7 @@ module s2_sky_mod
     s2_sky_draw_dot, &
     s2_sky_write_map_file, s2_sky_write_matmap_file, &
     s2_sky_write_alm_file, s2_sky_write_matalm_file, &
-    s2_sky_io_fits_write, &
+    s2_sky_write_file, s2_sky_io_fits_write, &
     s2_sky_set_lmax, &
     s2_sky_set_nside, &
     s2_sky_get_init, &
@@ -3319,6 +3319,59 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
     !--------------------------------------------------------------------------
     ! IO routines
     !--------------------------------------------------------------------------
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_init_file
+    ! 
+    !! Wrapper to write a s2 sky various types of files.
+    !!
+    !! Variables:
+    !!   - sky: Sky containing the map and/or alms to write to a file.
+    !!   - filename: Name of the output file.
+    !!   - file_type: Fit type specifier to specify whether to write a 
+    !!     fits map file, fits alm file or a fits full s2_sky file.
+    !!   - [comment]: Optional additional comment to be added to the fits file
+    !!     header.
+    !
+    !! @author J. D. McEwen
+    !! @version Under svn version control.
+    !
+    ! Revisions:
+    !   June 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_write_file(sky, filename, file_type, comment)
+
+      type(s2_sky), intent(in) :: sky
+      character(len=*), intent(in) :: filename
+      integer, intent(in) :: file_type
+      character(len=*), intent(in), optional :: comment
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_write_file')
+      end if
+
+      ! Write file.
+      select case(file_type)
+
+         case(S2_SKY_FILE_TYPE_SKY)
+            call s2_sky_io_fits_write(filename, sky, comment)
+
+         case(S2_SKY_FILE_TYPE_MAP)
+            call s2_sky_write_map_file(sky, filename, comment)
+
+         case(S2_SKY_FILE_TYPE_ALM)
+            call s2_sky_write_alm_file(sky, filename, comment)
+
+         case default
+            call s2_error(S2_ERROR_SKY_FILE_INVALID, 's2_sky_write_file', &
+              comment_add='Invalid file type specifier')
+
+      end select
+
+    end subroutine s2_sky_write_file
+
 
     !--------------------------------------------------------------------------
     ! s2_sky_write_map_file
