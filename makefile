@@ -91,8 +91,8 @@ S2OBJ  = $(S2INC)/s2_types_mod.o   \
           $(S2INC)/s2_wnoise_mod.o \
           $(S2INC)/s2_pl_mod.o     \
           $(S2INC)/s2_cmb_mod.o    \
-          $(S2INC)/s2_sky_mod.o    \
           $(S2INC)/s2_dl_mod.o     \
+          $(S2INC)/s2_sky_mod.o    \
           $(S2INC)/s2_ylm_mod.o 
 
 
@@ -128,6 +128,7 @@ prog:    $(S2BIN)/s2_nonzero     \
          $(S2BIN)/s2_grf2        \
          $(S2BIN)/s2_gcmbcoad    \
          $(S2BIN)/s2_skyrot      \
+         $(S2BIN)/s2_almrot      \
          $(S2BIN)/s2_skyorder    \
          $(S2BIN)/s2_dlwrite     \
          $(S2BIN)/s2_skyerror    \
@@ -184,6 +185,7 @@ $(S2INC)/s2_sky_mod.o:   $(S2SRC)/s2_sky_mod.f90    \
                              $(S2INC)/s2_types_mod.o  \
                              $(S2INC)/s2_error_mod.o  \
                              $(S2INC)/s2_vect_mod.o   \
+                             $(S2INC)/s2_dl_mod.o   \
                              $(S2INC)/s2_pl_mod.o
 $(S2INC)/s2_distn_mod.o: $(S2SRC)/s2_distn_mod.f90  \
                              $(S2INC)/s2_types_mod.o  \
@@ -324,6 +326,11 @@ $(S2BIN)/s2_gcmbcoad:          $(S2INC)/s2_gcmbcoad.o
 $(S2INC)/s2_skyrot.o:        $(S2PROG)/s2_skyrot.f90 lib
 $(S2BIN)/s2_skyrot:          $(S2INC)/s2_skyrot.o
 	$(FC) -o $(S2BIN)/s2_skyrot $(S2INC)/s2_skyrot.o \
+	$(LDFLAGS) $(PPFLAGS) 
+
+$(S2INC)/s2_almrot.o:        $(S2PROG)/s2_almrot.f90 lib
+$(S2BIN)/s2_almrot:          $(S2INC)/s2_almrot.o
+	$(FC) -o $(S2BIN)/s2_almrot $(S2INC)/s2_almrot.o \
 	$(LDFLAGS) $(PPFLAGS) 
 
 $(S2INC)/s2_skyorder.o:        $(S2PROG)/s2_skyorder.f90 lib

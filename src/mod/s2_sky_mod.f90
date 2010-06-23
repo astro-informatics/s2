@@ -17,7 +17,7 @@
 
 module s2_sky_mod
 
-  use s2_types_mod, only: s2_sp, s2_spc, s2_dp, pi
+  use s2_types_mod, only: s2_sp, s2_spc, s2_dp, s2_dpc, pi
   use s2_error_mod
   use s2_vect_mod
   use s2_pl_mod
@@ -42,7 +42,7 @@ module s2_sky_mod
     s2_sky_add,    s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
     s2_sky_error_twonorm, s2_sky_rms, & ! s2_sky_error_onenorm, s2_sky_error_pnorm, &
     s2_sky_dilate, &
-    s2_sky_rotate, &
+    s2_sky_rotate, s2_sky_rotate_alm, &
     s2_sky_power_map, s2_sky_power_alm, &
     s2_sky_azimuthal_bl, &
     s2_sky_admiss, &
@@ -2004,7 +2004,7 @@ module s2_sky_mod
          return
       end if
 
-     ! Allocate temporary storage space for dilated map.
+     ! Allocate temporary storage space for rotated map.
       allocate(map_rot(0:sky%npix-1), stat=fail)
       if(fail /= 0) then
          call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_rotate')
@@ -2055,6 +2055,101 @@ module s2_sky_mod
       sky%alm_status = .false.
 
     end subroutine s2_sky_rotate
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_rotate_alm
+    !
+    !! Rotate the alms of a sky.  The rotation is perform in harmomnic space.
+    !! The rotation is defined by the rotation routine in the s2_vect_mod
+    !! class but is performing using dlmn Wigner coefficients.
+    !!
+    !! Variables
+    !!  - sky: The sky rotated.
+    !!  - alpha: Alpha Euler angle of the rotation.
+    !!  - beta: Beta Euler angle of the rotation.
+    !!  - gamma: Gamma Euler angle of the rotation.
+    !
+    !! @author J. D. McEwen
+    !! @version Under svn version control.
+    !
+    ! Revisions:
+    !   June 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_rotate_alm(sky, alpha, beta, gamma)
+
+      use s2_dl_mod
+
+      type(s2_sky), intent(inout) :: sky
+      real(s2_dp) :: alpha, beta, gamma
+
+      complex(s2_spc), allocatable :: alm_rot(:,:)
+      integer :: fail, el, m, n
+      real(s2_dp) :: nsign
+      real(s2_dp), pointer :: dl(:,:)
+      complex(s2_dpc) :: I
+
+      I = cmplx(0d0, 1d0)
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_rotate_alm')
+      end if
+
+      ! Check alm defined.
+      if(.not. sky%alm_status) then
+         call s2_error(S2_ERROR_SKY_ALM_NOT_DEF, 's2_sky_rotate_alm')
+         return
+      end if
+
+      ! Allocate temporary storage space for rotated alms.
+      ! (Note that the mmax is lmax for the rotated function.)
+      allocate(alm_rot(0:sky%lmax, 0:sky%lmax), stat=fail)
+      if(fail /= 0) then
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_rotate_alm')
+      end if
+
+      ! Rotate harmonic coefficients.
+      do el = 0,sky%lmax
+
+         ! Compute dlms.
+         allocate(dl(-el:el,-el:el), stat=fail)
+         if(fail /= 0) then
+            call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_rotate_alm')
+         end if
+         call s2_dl_beta_operator(dl, beta, el)
+
+         ! Perform rotation.
+         do m = 0,el
+            alm_rot(el,m) = dl(m,0) * exp(-I*m*alpha) * sky%alm(el,0)
+            nsign = 1d0
+            do n = 1,min(el,sky%mmax)
+               nsign = -nsign
+               !nsign = (-1)**(n)
+               alm_rot(el, m) = alm_rot(el,m) &
+                    + dl(m,n) * exp(-I*m*alpha) * exp(-I*n*gamma) * sky%alm(el,n) &
+                    + dl(m,-n) * exp(-I*m*alpha) * exp(+I*n*gamma) * nsign *conjg(sky%alm(el,n))
+            end do
+         end do
+
+         ! Clear dlmns.
+         deallocate(dl)
+
+      end do
+
+      ! Overwrite old map with rotated version.
+      sky%alm(0:sky%lmax,0:sky%lmax) = alm_rot(0:sky%lmax,0:sky%lmax)
+      sky%mmax = sky%lmax
+
+      ! Free temporary storage space used.
+      deallocate(alm_rot)
+
+      ! Ensure map not present.
+      if(allocated(sky%map)) deallocate(sky%map)
+      sky%map_status = .false.
+
+    end subroutine s2_sky_rotate_alm
 
 
     !--------------------------------------------------------------------------

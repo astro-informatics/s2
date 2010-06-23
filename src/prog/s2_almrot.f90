@@ -1,26 +1,25 @@
 !------------------------------------------------------------------------------
-! s2_skyrot
+! s2_almrot
 !
-!! Rotate a sky.
+!! Rotate a sky in harmonic space.
 !!
 !! Usage: 
 !!   - [-help]: Display usage information.
-!!   - [-inp filename_in]: Name of file containing input sky.
-!!   - [-out filename_out]: Name of output file for rotated sky.
+!!   - [-inp filename_in]: Name of file containing input sky alms.
+!!   - [-out filename_out]: Name of output file for rotated sky alms.
 !!   - [-file_type file_type_str]: String specifying file types.
-!!   - [-ext ext (optional)]: File extension for map files.
 !!   - [alpha alpha]: Alpha Euler angle of rotation (in degrees).
 !!   - [beta beta]: Beta Euler angle of rotation (in degrees).
 !!   - [gamma gamma]: Gamma Euler angle of rotation (in degrees).
 !
 !! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
-!! @version 0.1 - April 2006
+!! @version Under svn version control.
 !
 ! Revisions:
-!   April 2006 - Written by Jason McEwen
+!   June 2010 - Written by Jason McEwen
 !------------------------------------------------------------------------------
 
-program s2_skyrot
+program s2_almrot
 
   use s2_types_mod
   use s2_sky_mod
@@ -28,12 +27,12 @@ program s2_skyrot
 
   implicit none
 
-  character(len=*), parameter ::  MAP_FILE = 'map'
+  character(len=*), parameter ::  ALM_FILE = 'alm'
   character(len=*), parameter ::  SKY_FILE = 'sky'
-  integer :: file_type = S2_SKY_FILE_TYPE_MAP, ext = 1
+  integer :: file_type = S2_SKY_FILE_TYPE_ALM
   character(len=S2_STRING_LEN) :: filename_in, filename_out
-  character(len=S2_STRING_LEN) :: file_type_str = MAP_FILE
-  real(s2_sp) :: alpha=0e0, beta=0e0, gamma=0e0
+  character(len=S2_STRING_LEN) :: file_type_str = ALM_FILE
+  real(s2_dp) :: alpha=0d0, beta=0d0, gamma=0d0
   type(s2_sky) :: sky
 
   ! Parse input parameters.
@@ -42,35 +41,35 @@ program s2_skyrot
   ! Set sky file type.
   select case (trim(file_type_str))
 
-    case (MAP_FILE)
-       file_type = S2_SKY_FILE_TYPE_MAP
+    case (ALM_FILE)
+       file_type = S2_SKY_FILE_TYPE_ALM
 
     case (SKY_FILE)
        file_type = S2_SKY_FILE_TYPE_SKY
 
     case default
-       call s2_error(S2_ERROR_SKY_FILE_INVALID, 's2_skyrot', &
+       call s2_error(S2_ERROR_SKY_FILE_INVALID, 's2_almrot', &
          comment_add='Invalid file type option')
 
   end select
 
   ! Initialse sky with map read in from fits file.
-  sky = s2_sky_init(filename_in, file_type, ext)
+  sky = s2_sky_init(filename_in, file_type)
 
   ! Rotate sky.
-  call s2_sky_rotate(sky, alpha*pi/180e0, beta*pi/180e0, gamma*pi/180e0)
+  call s2_sky_rotate_alm(sky, alpha*pi/180d0, beta*pi/180d0, gamma*pi/180d0)
 
   ! Save new sky map.
   select case(file_type)
 
-    case(S2_SKY_FILE_TYPE_MAP)
-       call s2_sky_write_map_file(sky, filename_out)
+    case(S2_SKY_FILE_TYPE_ALM)
+       call s2_sky_write_alm_file(sky, filename_out)
 
     case(S2_SKY_FILE_TYPE_SKY)
        call s2_sky_io_fits_write(filename_out, sky)
        
     case default
-       call s2_error(S2_ERROR_SKY_FILE_INVALID, 's2_skyrot', &
+       call s2_error(S2_ERROR_SKY_FILE_INVALID, 's2_almrot', &
             comment_add='Invalid file type specifier')
        
   end select
@@ -123,10 +122,9 @@ program s2_skyrot
         select case (trim(opt))
   
           case ('-help')
-            write(*,'(a)') 'Usage: s2_skyrot [-inp filename_in]'
+            write(*,'(a)') 'Usage: s2_almrot [-inp filename_in]'
             write(*,'(a)') '                 [-out filename_out]'
-            write(*,'(a)') '                 [-file_type file_type_str (map; sky)]'
-            write(*,'(a)') '                 [-ext ext (optional)]'
+            write(*,'(a)') '                 [-file_type file_type_str (alm; sky)]'
             write(*,'(a)') '                 [-alpha alpha (degrees)]'
             write(*,'(a)') '                 [-beta beta (degrees)]'
             write(*,'(a)') '                 [-gamma gamma (degrees)]'
@@ -140,9 +138,6 @@ program s2_skyrot
 
           case ('-file_type')
             file_type_str = trim(arg)
-
-          case ('-ext')
-            read(arg,*) ext
 
           case ('-alpha')
             read(arg,*) alpha
@@ -162,7 +157,7 @@ program s2_skyrot
     end subroutine parse_options
 
 
-end program s2_skyrot
+end program s2_almrot
 
 
 
