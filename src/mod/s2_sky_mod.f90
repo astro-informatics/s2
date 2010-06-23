@@ -39,7 +39,7 @@ module s2_sky_mod
     s2_sky_map_convert, &
     s2_sky_conv, &
     s2_sky_offset, s2_sky_scale,  &
-    s2_sky_add,    s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
+    s2_sky_add, s2_sky_add_alm, s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
     s2_sky_error_twonorm, s2_sky_rms, & ! s2_sky_error_onenorm, s2_sky_error_pnorm, &
     s2_sky_dilate, &
     s2_sky_rotate, s2_sky_rotate_alm, &
@@ -1656,6 +1656,83 @@ module s2_sky_mod
       deallocate(map_temp)
 
     end function s2_sky_add
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_add_alm
+    !
+    !! Add the alms of two skys.  
+    !!
+    !! Variables:
+    !!  - a: First sky to be added.
+    !!  - b: Second sky to be added
+    !!  - [subtract]: Logcal specifying whether to subtract, rather than 
+    !!    add alms.
+    !!  - c: The output *initialised* sky whos alms are the sum of the alms of 
+    !!    the other two passed skies.
+    !
+    !! @author J. D. McEwen
+    !! @version Under svn version control.
+    !
+    ! Revisions:
+    !   June 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    function s2_sky_add_alm(a, b, subtract) result(c)
+
+      type(s2_sky), intent(inout) :: a, b  
+      logical, intent(in), optional :: subtract
+        ! Need to be inout incase have to compute alms.
+      type(s2_sky) :: c
+
+      logical :: subtract_use
+      integer :: nside, npix, pix_scheme, lmax, mmax, fail
+      complex(s2_spc), allocatable :: alm_temp(:,:)
+
+      subtract_use = .false.
+      if(present(subtract)) subtract_use = subtract
+
+      ! Check objects initialised.
+      if((.not. a%init) .or.(.not. b%init)) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_add_alm')
+      end if 
+
+      ! Check skies to be added have same lmax and mmax.
+      if(a%lmax /= b%lmax .or. a%mmax /= b%mmax) then
+         call s2_error(S2_ERROR_SKY_NON_CONFORM, 's2_sky_add_alm', &
+           comment_add='Skies to be added have different lmax or mmax')
+      end if
+     
+      ! Compute alms if not already computed.
+      if(.not. a%alm_status) call s2_sky_compute_alm(a)
+      if(.not. b%alm_status) call s2_sky_compute_alm(b)
+
+      ! Define parameters for resultant sky.
+      nside = a%nside
+      npix = a%npix
+      pix_scheme = a%pix_scheme
+      lmax = a%lmax
+      mmax = a%mmax
+
+      ! Generate added map
+      allocate(alm_temp(0:lmax,0:mmax), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_add_alm')
+      end if
+
+      if(subtract_use) then
+         alm_temp = a%alm - b%alm
+      else
+         alm_temp = a%alm + b%alm
+      end if
+
+      ! Initialise output sky with new alms.
+      c = s2_sky_init_alm(alm_temp, lmax, mmax, nside, pix_scheme)
+
+      ! Free memory used for temporary storage.
+      deallocate(alm_temp)
+
+    end function s2_sky_add_alm
 
 
     !--------------------------------------------------------------------------
