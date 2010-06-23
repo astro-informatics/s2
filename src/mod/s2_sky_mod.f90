@@ -84,6 +84,7 @@ module s2_sky_mod
        s2_sky_init_alm, &
        s2_sky_init_ab, &
        s2_sky_init_fun, &
+       s2_sky_init_fun_alm, &
        s2_sky_init_file, &
        s2_sky_init_copy
   end interface
@@ -543,6 +544,96 @@ module s2_sky_mod
       sky%init = .true.
     
     end function s2_sky_init_fun
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_init_fun_alm
+    !
+    !! Initialise a sky from a template function defined in harmonic space.
+    !!
+    !! Variables:
+    !!  - lmax: Alm lmax.
+    !!  - mmax: Alm mmax.
+    !!  - azisum: Logical specifying whether the template function is 
+    !!    azimuthally symmetric, in which case non-zero harmonic 
+    !!    cofficients are computed for m=0 only.
+    !!  - [nside]: Healpix nside.
+    !!  - [pix_scheme]: Pixelisation scheme for map.  
+    !!  - [param]: Parameter array specifying analytic parameters for the
+    !!    function to be evaluated.
+    !!  - sky: The initialised sky with the template function evaluated over 
+    !!    the map.
+    !
+    !! @author J. D. McEwen
+    !! @version Under svn version control.
+    !
+    ! Revisions:
+    !   June 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    function s2_sky_init_fun_alm(fun, lmax, mmax, azisym, nside, pix_scheme, &
+      param) result(sky)
+
+      integer, intent(in) :: lmax, mmax
+      logical, intent(in) :: azisym
+      integer, intent(in), optional :: nside, pix_scheme
+      real(s2_sp), intent(in), optional :: param(:)
+      type(s2_sky) :: sky
+      interface 
+        function fun(el, m, param) result(val)
+          use s2_types_mod
+          integer, intent(in) :: el, m
+          real(s2_sp), intent(in), optional :: param(:)
+          real(s2_sp) :: val
+        end function fun
+      end interface
+
+      integer :: fail = 0
+      integer :: el, m
+
+      ! Check object not already initialised.
+      if(sky%init) then
+        call s2_error(S2_ERROR_INIT, 's2_sky_init_fun_alm')
+        return
+      end if
+
+      ! Initialise empty sky.
+      sky = s2_sky_init_empty(nside, pix_scheme, lmax, mmax)
+
+      ! Allocate space.
+      allocate(sky%alm(0:sky%lmax,0:sky%mmax), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_init_fun_alm')
+      end if
+      sky%alm(0:sky%lmax,0:sky%mmax) = cmplx(0e0, 0e0)
+
+      ! Compute alms.
+      do el = 0,lmax
+         if (azisym) then
+            m = 0
+            sky%alm(el,m) = fun(el, m, param)
+         else
+            do m = 0,min(el,mmax)
+               sky%alm(el,m) = fun(el, m, param)
+            end do
+         end do
+      end do
+
+      ! Save parameters if present.
+      if(present(param)) then
+         sky%n_param = size(param)
+         allocate(sky%param(1:sky%n_param), stat=fail)
+         sky%param = param
+         if(fail /= 0) then 
+            call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_init_fun_alm')
+         end if
+      end if
+
+      ! Set status and initialised flags.     
+      sky%alm_status = .true.
+      sky%init = .true.
+
+    end function s2_sky_init_fun_alm
 
 
     !--------------------------------------------------------------------------
