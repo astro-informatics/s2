@@ -113,6 +113,7 @@ prog:    $(S2BIN)/s2_nonzero     \
          $(S2BIN)/s2_map2matmap  \
          $(S2BIN)/s2_alm2sky     \
          $(S2BIN)/s2_alm2map     \
+         $(S2BIN)/s2_alm2matalm  \
          $(S2BIN)/s2_plplot      \
          $(S2BIN)/s2_sky2plplot  \
          $(S2BIN)/s2_cl2ascii    \
@@ -368,4 +369,9 @@ $(S2BIN)/s2_sky2fsht:          $(S2INC)/s2_sky2fsht.o
 $(S2INC)/s2_map2matmap.o:        $(S2PROG)/s2_map2matmap.f90 lib
 $(S2BIN)/s2_map2matmap:          $(S2INC)/s2_map2matmap.o
 	$(FC) -o $(S2BIN)/s2_map2matmap $(S2INC)/s2_map2matmap.o \
+	$(LDFLAGS) $(PPFLAGS) 
+
+$(S2INC)/s2_alm2matalm.o:        $(S2PROG)/s2_alm2matalm.f90 lib
+$(S2BIN)/s2_alm2matalm:          $(S2INC)/s2_alm2matalm.o
+	$(FC) -o $(S2BIN)/s2_alm2matalm $(S2INC)/s2_alm2matalm.o \
 	$(LDFLAGS) $(PPFLAGS) 

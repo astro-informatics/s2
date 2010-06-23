@@ -52,7 +52,7 @@ module s2_sky_mod
     s2_sky_upsample, &
     s2_sky_draw_dot, &
     s2_sky_write_map_file, s2_sky_write_matmap_file, &
-    s2_sky_write_alm_file, &
+    s2_sky_write_alm_file, s2_sky_write_matalm_file, &
     s2_sky_io_fits_write, &
     s2_sky_set_lmax, &
     s2_sky_set_nside, &
@@ -3269,7 +3269,7 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
         call s2_error(S2_ERROR_NOT_INIT, 's2_sky_write_alm_file')
       end if
 
-      ! Check map defined.
+      ! Check alms defined.
       if(.not. sky%alm_status) then
          call s2_error(S2_ERROR_SKY_ALM_NOT_DEF, 's2_sky_write_alm_file')
       end if
@@ -3345,9 +3345,11 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
     !! defined on an equiangular grid.
     !!
     !! Variables:
-    !!   - sky: Sky containing the map to write to a fits file.
-    !!   - filename: Name of the output fits file.
+    !!   - sky: Sky containing the map to write to a file.
+    !!   - filename: Name of the output matlab map file.
     !!   - B: Band limit corresponding to equi-angular grid.
+    !!   - [comment]: Optional additional comment to be added to the file
+    !!     header.
     !
     !! @author J. D. McEwen
     !! @version Under svn version control.
@@ -3372,12 +3374,12 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
 
       ! Check object initialised.
       if(.not. sky%init) then
-        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_write_map')
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_write_matmap_file')
       end if
 
       ! Check map defined.
       if(.not. sky%map_status) then
-         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_write_map')
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_write_matmap_file')
       end if
 
       ! Extract equi-angular sampled sphere to write to file.
@@ -3394,6 +3396,7 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
            form='formatted')
 
       ! Write to file.
+      write(fileid,'(a,a)') '% ', trim(comment)
       do itheta = 0,2*B-1
          theta = pi*(2*itheta+1)/real(4*B,s2_dp)
          theta = mod(theta, PI)
@@ -3408,6 +3411,66 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
       close(fileid)
 
     end subroutine s2_sky_write_matmap_file
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_write_matalm_file
+    !
+    !! Write alms to a matlab alm file.  
+    !!
+    !! Variables:
+    !!   - sky: Sky containing the alms to write to a file.
+    !!   - filename: Name of the output matlab alm file.
+    !!   - [comment]: Optional additional comment to be added to the file
+    !!     header.
+    !
+    !! @author J. D. McEwen
+    !! @version Under svn version control.
+    !
+    ! Revisions:
+    !   June 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_write_matalm_file(sky, filename, comment)
+
+      type(s2_sky), intent(in) :: sky
+      character(len=*), intent(in) :: filename
+      character(len=*), intent(in), optional :: comment
+
+      integer :: fileid, el, m
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_write_matalm_file')
+      end if
+
+      ! Check alms defined.
+      if(.not. sky%alm_status) then
+         call s2_error(S2_ERROR_SKY_ALM_NOT_DEF, 's2_sky_write_matalm_file')
+      end if
+
+      ! Open file.
+      fileid = 12
+      open(unit=fileid, file=trim(filename), status='new', action='write', &
+           form='formatted')
+
+      ! Write to file.
+      write(fileid,'(a,a)') '% ', trim(comment)
+      do m = 0,sky%lmax
+         do el = 0,sky%lmax
+            if (m <= sky%mmax) then
+               write(fileid,'(2e28.20)') &
+                    real(sky%alm(el,m), s2_dp), real(aimag(sky%alm(el,m)), s2_dp)
+            else
+               write(fileid,'(2e28.20)') real(0.0, s2_dp), real(0.0, s2_dp)
+            end if
+         end do
+      end do
+
+      ! Close file.
+      close(fileid)
+
+    end subroutine s2_sky_write_matalm_file
 
 
     !--------------------------------------------------------------------------
