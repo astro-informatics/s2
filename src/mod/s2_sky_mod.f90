@@ -616,7 +616,7 @@ module s2_sky_mod
             do m = 0,min(el,mmax)
                sky%alm(el,m) = fun(el, m, param)
             end do
-         end do
+         end if
       end do
 
       ! Save parameters if present.
