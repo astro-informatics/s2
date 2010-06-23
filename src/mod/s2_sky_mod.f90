@@ -2077,20 +2077,27 @@ module s2_sky_mod
     !   June 2010 - Written by Jason McEwen
     !--------------------------------------------------------------------------
 
-    subroutine s2_sky_rotate_alm(sky, alpha, beta, gamma)
+    subroutine s2_sky_rotate_alm(sky, alpha, beta, gamma, azisym_in)
 
       use s2_dl_mod
 
       type(s2_sky), intent(inout) :: sky
       real(s2_dp) :: alpha, beta, gamma
+      logical, optional :: azisym_in
 
       complex(s2_spc), allocatable :: alm_rot(:,:)
       integer :: fail, el, m, n
       real(s2_dp) :: nsign
       real(s2_dp), pointer :: dl(:,:)
       complex(s2_dpc) :: I
+      logical :: azisym = .false.
 
       I = cmplx(0d0, 1d0)
+      
+      ! Parse inputs.
+      if(present(azisym_in)) then
+         azisym = azisym_in
+      end if
 
       ! Check object initialised.
       if(.not. sky%init) then
@@ -2123,14 +2130,16 @@ module s2_sky_mod
          ! Perform rotation.
          do m = 0,el
             alm_rot(el,m) = dl(m,0) * exp(-I*m*alpha) * sky%alm(el,0)
-            nsign = 1d0
-            do n = 1,min(el,sky%mmax)
-               nsign = -nsign
-               !nsign = (-1)**(n)
-               alm_rot(el, m) = alm_rot(el,m) &
-                    + dl(m,n) * exp(-I*m*alpha) * exp(-I*n*gamma) * sky%alm(el,n) &
-                    + dl(m,-n) * exp(-I*m*alpha) * exp(+I*n*gamma) * nsign *conjg(sky%alm(el,n))
-            end do
+            if (.not. azisym) then
+               nsign = 1d0
+               do n = 1,min(el,sky%mmax)
+                  nsign = -nsign
+                  !nsign = (-1)**(n)
+                  alm_rot(el, m) = alm_rot(el,m) &
+                       + dl(m,n) * exp(-I*m*alpha) * exp(-I*n*gamma) * sky%alm(el,n) &
+                       + dl(m,-n) * exp(-I*m*alpha) * exp(+I*n*gamma) * nsign *conjg(sky%alm(el,n))
+               end do
+            end if
          end do
 
          ! Clear dlmns.
