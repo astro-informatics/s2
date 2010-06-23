@@ -227,8 +227,8 @@ module s2_ylm_mod
 
       allocate(dl(-el:el,-el:el), stat=fail)
       if(fail /= 0) then
-					call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_ylm_eval_wig')
-				end if	
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_ylm_eval_wig')
+      end if
       call s2_dl_beta_operator(dl, theta, el)
 
       ylm = sqrt( (2d0*el+1d0)/(4d0*PI )) * dl(m,0) &

@@ -22,13 +22,13 @@ ifeq ($(FC),f95)
   OPTF95 = -w=x95
 endif
 
-OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5
+OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5 -m64
 #OPT = $(OPTPGPLOT) $(OPTF95) -DMAKE_COADDED_DATA_MAP -DWMAP3 -DDEBUG
 
 
 # ======== LINKS ========
 
-PROGDIR = /home/jdm57/src
+PROGDIR = /Users/mcewen/src
 
 HPIXDIR = $(PROGDIR)/Healpix
 HPIXLIB = $(HPIXDIR)/lib
@@ -110,6 +110,7 @@ prog:    $(S2BIN)/s2_nonzero     \
          $(S2BIN)/s2_sky2alm     \
          $(S2BIN)/s2_map2sky     \
          $(S2BIN)/s2_map2alm     \
+         $(S2BIN)/s2_map2matmap  \
          $(S2BIN)/s2_alm2sky     \
          $(S2BIN)/s2_alm2map     \
          $(S2BIN)/s2_plplot      \
@@ -151,10 +152,10 @@ $(S2LIB)/lib$(S2LIBNM).a: $(S2OBJ)
 # Documentation
 
 docs:
-	f90doc_fpp $(S2SRC)/*.f90
-	f90doc_fpp $(S2PROG)/*.f90
+	./f90doc_fpp $(S2SRC)/*.f90
+	./f90doc_fpp $(S2PROG)/*.f90
 	mv *.html $(S2DOC)/.
-	addstyle $(S2DOC)/s2_*
+	./addstyle $(S2DOC)/s2_*
 
 cleandocs:
 	rm -f $(S2DOC)/s2_*.html
@@ -362,4 +363,9 @@ $(S2BIN)/s2_nmask:          $(S2INC)/s2_nmask.o
 $(S2INC)/s2_sky2fsht.o:        $(S2PROG)/s2_sky2fsht.f90 lib
 $(S2BIN)/s2_sky2fsht:          $(S2INC)/s2_sky2fsht.o
 	$(FC) -o $(S2BIN)/s2_sky2fsht $(S2INC)/s2_sky2fsht.o \
+	$(LDFLAGS) $(PPFLAGS) 
+
+$(S2INC)/s2_map2matmap.o:        $(S2PROG)/s2_map2matmap.f90 lib
+$(S2BIN)/s2_map2matmap:          $(S2INC)/s2_map2matmap.o
+	$(FC) -o $(S2BIN)/s2_map2matmap $(S2INC)/s2_map2matmap.o \
 	$(LDFLAGS) $(PPFLAGS) 

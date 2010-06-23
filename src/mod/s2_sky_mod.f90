@@ -51,7 +51,7 @@ module s2_sky_mod
     s2_sky_downsample, &
     s2_sky_upsample, &
     s2_sky_draw_dot, &
-    s2_sky_write_map_file, &
+    s2_sky_write_map_file, s2_sky_write_matmap_file, &
     s2_sky_write_alm_file, &
     s2_sky_io_fits_write, &
     s2_sky_set_lmax, &
@@ -2472,6 +2472,73 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
 
 
     !--------------------------------------------------------------------------
+    ! s2_sky_extract_ab_s2dw
+    !
+    !! Extra an ecp (equispaced) sampled theta-phi array over the sphere
+    !! for the grid used for S2DW.
+    !!
+    !! Notes:
+    !!   - No interpolation performed.
+    !!   - The size of xtp must already be specified and allocated.
+    !!
+    !! Variables:
+    !!   - sky: Sky to extract theta-phi array representation of.
+    !!   - xtp: The extracted discrete theta-phi data array corresponding
+    !!     to the given sky.
+    !  
+    !! @author J. D. McEwen
+    !! @version Under svn version control.
+    !
+    ! Revisions:
+    !   June 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_extract_ab_s2dw(sky, xtp, B)
+
+      use pix_tools, only: ang2pix_ring, ang2pix_nest
+
+      type(s2_sky), intent(in) :: sky
+      real(s2_dp), intent(out) :: xtp(0:2*B-1,0:2*B-2)
+      integer, intent(in) :: B
+
+      integer :: itheta, iphi, ipix
+      real(s2_dp) :: theta, phi
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_extract_ab_fsht')
+      end if
+
+      do itheta = 0,2*B-1
+
+         theta = pi*(2*itheta+1)/real(4*B,s2_dp)
+         theta = mod(theta, PI)
+
+         do iphi = 0,2*B-2
+
+            phi = 2*pi*iphi/real(2*B-1,s2_dp)
+            phi = mod(phi, 2*PI)
+
+            ! Compute index corresponding to theta (beta) and phi (alpha)
+            ! angles.
+            if(sky%pix_scheme == S2_SKY_RING) then
+               call ang2pix_ring(sky%nside, theta, phi, ipix)
+            else if(sky%pix_scheme == S2_SKY_NEST) then
+               call ang2pix_nest(sky%nside, theta, phi, ipix)
+            else
+               call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_extract_ab_fsht')
+            end if
+            
+            xtp(itheta, iphi) = sky%map(ipix)
+
+         end do
+         
+      end do
+      
+    end subroutine s2_sky_extract_ab_s2dw
+
+
+    !--------------------------------------------------------------------------
     ! s2_sky_extract_ab
     !
     !! Extra an ecp (equispaced) sampled alpha-beta array over the sphere
@@ -3270,7 +3337,79 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
 
     end subroutine s2_sky_write_alm_file
 
-   
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_write_matmap_file
+    !
+    !! Write a sky map to a matlab map file.  Note that the matlab map is
+    !! defined on an equiangular grid.
+    !!
+    !! Variables:
+    !!   - sky: Sky containing the map to write to a fits file.
+    !!   - filename: Name of the output fits file.
+    !!   - B: Band limit corresponding to equi-angular grid.
+    !
+    !! @author J. D. McEwen
+    !! @version Under svn version control.
+    !
+    ! Revisions:
+    !   June 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_write_matmap_file(sky, filename, B, comment)
+
+      use pix_tools, only: pix2ang_ring, pix2ang_nest
+
+      type(s2_sky), intent(in) :: sky
+      character(len=*), intent(in) :: filename
+      integer, intent(in) :: B
+      character(len=*), intent(in), optional :: comment
+
+      real(s2_dp) :: theta, phi
+      integer :: fileid, ipix, itheta, iphi
+      integer :: fail = 0
+      real(s2_dp), allocatable :: xtp(:,:)
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_write_map')
+      end if
+
+      ! Check map defined.
+      if(.not. sky%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_write_map')
+      end if
+
+      ! Extract equi-angular sampled sphere to write to file.
+      allocate(xtp(0:2*B-1,0:2*B-2), stat=fail)
+      if(fail /= 0) then 
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
+              's2_sky_write_matmap_file')
+      end if
+      call s2_sky_extract_ab_s2dw(sky, xtp, B)
+
+      ! Open file.
+      fileid = 11
+      open(unit=fileid, file=trim(filename), status='new', action='write', &
+           form='formatted')
+
+      ! Write to file.
+      do itheta = 0,2*B-1
+         theta = pi*(2*itheta+1)/real(4*B,s2_dp)
+         theta = mod(theta, PI)
+         do iphi = 0,2*B-2
+            phi = 2*pi*iphi/real(2*B-1,s2_dp)
+            phi = mod(phi, 2*PI)
+            write(fileid,'(3e28.20)') theta, phi, xtp(itheta, iphi)
+         end do
+      end do
+
+      ! Close file.
+      close(fileid)
+
+    end subroutine s2_sky_write_matmap_file
+
+
     !--------------------------------------------------------------------------
     ! s2_sky_io_fits_write
     !
