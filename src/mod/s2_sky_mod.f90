@@ -584,7 +584,7 @@ module s2_sky_mod
           use s2_types_mod
           integer, intent(in) :: el, m
           real(s2_sp), intent(in), optional :: param(:)
-          real(s2_sp) :: val
+          complex(s2_spc) :: val
         end function fun
       end interface
 
@@ -1721,13 +1721,13 @@ module s2_sky_mod
       end if
 
       if(subtract_use) then
-         alm_temp = a%alm - b%alm
+         alm_temp = a%alm(0:lmax,0:mmax) - b%alm(0:lmax,0:mmax)
       else
-         alm_temp = a%alm + b%alm
+         alm_temp = a%alm(0:lmax,0:mmax) + b%alm(0:lmax,0:mmax)
       end if
 
       ! Initialise output sky with new alms.
-      c = s2_sky_init_alm(alm_temp, lmax, mmax, nside, pix_scheme)
+      c = s2_sky_init_alm(alm_temp, lmax, mmax)
 
       ! Free memory used for temporary storage.
       deallocate(alm_temp)
