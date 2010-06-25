@@ -93,6 +93,7 @@ S2OBJ  = $(S2INC)/s2_types_mod.o   \
           $(S2INC)/s2_cmb_mod.o    \
           $(S2INC)/s2_dl_mod.o     \
           $(S2INC)/s2_sky_mod.o    \
+          $(S2INC)/s2_proj_mod.o   \
           $(S2INC)/s2_ylm_mod.o 
 
 
@@ -136,7 +137,8 @@ prog:    $(S2BIN)/s2_nonzero     \
          $(S2BIN)/s2_skythres    \
          $(S2BIN)/s2_ylm         \
          $(S2BIN)/s2_nmask       \
-         $(S2BIN)/s2_sky2fsht
+         $(S2BIN)/s2_sky2fsht    \
+         $(S2BIN)/s2_sky2proj
 
 $(S2INC)/%.o: $(S2SRC)/%.f90
 	$(FC) $(FFLAGS) $(PPFLAGS) -c $< -o $@ 
@@ -186,7 +188,7 @@ $(S2INC)/s2_sky_mod.o:   $(S2SRC)/s2_sky_mod.f90    \
                              $(S2INC)/s2_error_mod.o  \
                              $(S2INC)/s2_vect_mod.o   \
                              $(S2INC)/s2_dl_mod.o   \
-                             $(S2INC)/s2_pl_mod.o
+                             $(S2INC)/s2_pl_mod.o  
 $(S2INC)/s2_distn_mod.o: $(S2SRC)/s2_distn_mod.f90  \
                              $(S2INC)/s2_types_mod.o  \
                              $(S2INC)/s2_error_mod.o
@@ -215,6 +217,12 @@ $(S2INC)/s2_ylm_mod.o:  $(S2SRC)/s2_ylm_mod.f90   \
                              $(S2INC)/s2_error_mod.o \
                              $(S2INC)/s2_dl_mod.o \
                              $(S2INC)/s2_sky_mod.o    
+$(S2INC)/s2_proj_mod.o:  $(S2SRC)/s2_proj_mod.f90   \
+                             $(S2INC)/s2_types_mod.o \
+                             $(S2INC)/s2_error_mod.o \
+                             $(S2INC)/s2_sky_mod.o  \
+                             $(S2INC)/s2_ylm_mod.o
+
 
 # Program dependencies and compilation
 
@@ -381,4 +389,9 @@ $(S2BIN)/s2_map2matmap:          $(S2INC)/s2_map2matmap.o
 $(S2INC)/s2_alm2matalm.o:        $(S2PROG)/s2_alm2matalm.f90 lib
 $(S2BIN)/s2_alm2matalm:          $(S2INC)/s2_alm2matalm.o
 	$(FC) -o $(S2BIN)/s2_alm2matalm $(S2INC)/s2_alm2matalm.o \
+	$(LDFLAGS) $(PPFLAGS) 
+
+$(S2INC)/s2_sky2proj.o:        $(S2PROG)/s2_sky2proj.f90 lib
+$(S2BIN)/s2_sky2proj:          $(S2INC)/s2_sky2proj.o
+	$(FC) -o $(S2BIN)/s2_sky2proj $(S2INC)/s2_sky2proj.o \
 	$(LDFLAGS) $(PPFLAGS) 

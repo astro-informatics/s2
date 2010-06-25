@@ -32,7 +32,7 @@ module s2_error_mod
   ! Global variables
   !---------------------------------------
 
-  integer, parameter :: S2_ERROR_NUM = 31
+  integer, parameter :: S2_ERROR_NUM = 33
 
   integer, public, parameter :: &
     S2_ERROR_NONE = 0, &
@@ -65,7 +65,10 @@ module s2_error_mod
     S2_ERROR_WNOISE_TYPE_INVALID = 27, &
     S2_ERROR_VECT_TYPE_INVALID = 28, &
     S2_ERROR_VECT_CART_DIM_INVALID = 29, &
-    S2_ERROR_YLM_ARG_INVALID = 30
+    S2_ERROR_YLM_ARG_INVALID = 30, &
+    S2_ERROR_PROJ_METHOD_INVALID = 31, &
+    S2_ERROR_PROJ_FIELD_INVALID = 32
+
 
 
   ! Each element of the error_comment array must have the same length, thus
@@ -105,7 +108,9 @@ module s2_error_mod
       'Invalid noise type                                                       ', &
       'Invalid vector coordinate type                                           ', &
       'Invalid number of dimensions for cartesian vector                        ', &
-      'Invalid agruments                                                        ' &
+      'Invalid agruments                                                        ', &
+      'Invalid projection method                                                ', &
+      'Invalid projection field                                                 ' &
       /) 
   
   !! Default program halt status of each error type.
@@ -135,6 +140,8 @@ module s2_error_mod
       .true.,  &   
       .false., &
       .false., &
+      .true.,  &
+      .true.,  &
       .true.,  &
       .true.,  &
       .true.,  &

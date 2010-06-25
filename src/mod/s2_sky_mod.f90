@@ -3721,7 +3721,7 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
            form='formatted')
 
       ! Write to file.
-      write(fileid,'(a,a)') '% ', trim(comment)
+      if(present(comment)) write(fileid,'(a,a)') '% ', trim(comment)
       do itheta = 0,2*B-1
          theta = pi*(2*itheta+1)/real(4*B,s2_dp)
          theta = mod(theta, PI)
@@ -3734,6 +3734,9 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
 
       ! Close file.
       close(fileid)
+
+      ! Free memory.
+      deallocate(xtp)
 
     end subroutine s2_sky_write_matmap_file
 
@@ -3780,7 +3783,7 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
            form='formatted')
 
       ! Write to file.
-      write(fileid,'(a,a)') '% ', trim(comment)
+      if(present(comment)) write(fileid,'(a,a)') '% ', trim(comment)
       do m = 0,sky%lmax
          do el = 0,sky%lmax
             if (m <= sky%mmax) then
