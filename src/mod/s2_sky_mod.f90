@@ -46,7 +46,7 @@ module s2_sky_mod
     s2_sky_power_map, s2_sky_power_alm, &
     s2_sky_azimuthal_bl, &
     s2_sky_admiss, &
-    s2_sky_admiss_dil, &
+    s2_sky_admiss_dil, s2_sky_fov, &
     s2_sky_extract_ab, s2_sky_extract_ab_fsht, &
     s2_sky_downsample, &
     s2_sky_upsample, &
