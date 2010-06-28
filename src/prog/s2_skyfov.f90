@@ -1,23 +1,18 @@
 !------------------------------------------------------------------------------
-! s2_sky2proj
+! s2_sky_fov
 !
-!!
-
-
-
- 
+!! Zero portion of sky outside of field-of-view (fov).  Two methods exist: 
+!! (i) S2_SKY_FOV_METHOD_CIRCLE: restrict fov based on theta_fiv only;
+!! (ii) S2_SKY_FOV_METHOD_SQUARE: restrict fov to ensure only planar grid 
+!! within theta_fov remains.
 !!
 !! Usage: 
 !!   - [-help]: Display usage information.
 !!   - [-inp filename_in]: Name of file containing input sky .
-!!   - [-file_type file_type_str]: String specifying input file type.
-!!   - [-out filename_out]: Name of output file for projected image.
-!!   - [method method]: Projection method to use.
+!!   - [-out filename_out]: Name of output file forsky with fov set.
+!!   - [-file_type file_type_str]: String specifying file type.
+!!   - [method method]: Method to use when determining fov.
 !!   - [theta_fov theta_fov]: Field of view (in degrees).
-!!   - [nside nside]: Healpix nside to use when projecting image (required by 
-!!     some projection methods if not provided in sky object).
-!!   - [lmax lmax]: Harmonic band-limit to use when projecting image
-!!     (required by some projection methods if not provided in sky object).
 !
 !! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
 !
@@ -140,11 +135,11 @@ program s2_skyfov
         select case (trim(opt))
   
           case ('-help')
-            write(*,'(a)') 'Usage: s2_sky2proj [-inp filename_in]'
-            write(*,'(a)') '                   [-out filename_out]'
-            write(*,'(a)') '                   [-file_type file_type_str (sky; map; alm)]'
-            write(*,'(a)') '                   [-method method (circle; square)]'
-            write(*,'(a)') '                   [-theta_fov theta_fov (in degrees)]'
+            write(*,'(a)') 'Usage: s2_skyfov [-inp filename_in]'
+            write(*,'(a)') '                 [-out filename_out]'
+            write(*,'(a)') '                 [-file_type file_type_str (sky; map; alm)]'
+            write(*,'(a)') '                 [-method method (circle; square)]'
+            write(*,'(a)') '                 [-theta_fov theta_fov (in degrees)]'
             stop
           
           case ('-inp')
