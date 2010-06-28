@@ -2792,6 +2792,93 @@ module s2_sky_mod
 
 
     !--------------------------------------------------------------------------
+    ! s2_sky_fov
+    !
+    !! Zero portion of sky outside of field-of-view (fov).  Two methods exist: 
+    !! (i) S2_SKY_FOV_METHOD_CIRCLE: restrict fov based on theta_fiv only;
+    !! (ii) S2_SKY_FOV_METHOD_SQUARE: restrict fov to ensure only planar grid 
+    !! within theta_fov remains.
+    !!
+    !! Variables:
+    !!   - sky: Sky to restrict fov.
+    !!   - theta_fov: Fov to restruct to (note theta_max = theta_fov/2).
+    !!   - method: Method to use when determining fov.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   June 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_fov(sky, theta_fov, method)
+
+      use pix_tools, only: pix2ang_ring, pix2ang_nest
+      use s2_vect_mod
+
+      type(s2_sky), intent(inout) :: sky
+      real(s2_dp), intent(in) :: theta_fov
+      integer, intent(in) :: method
+
+      integer :: ipix
+      real(s2_dp) :: theta, phi
+      real(s2_sp) :: x(3)
+      real(s2_sp) :: L
+      type(s2_vect) :: vec
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_fov')
+      end if
+
+      ! Check map defined.
+      if(.not. sky%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_fov')
+      end if
+     
+      ! Zero maps values outside fov.
+      L = sqrt(2.0) * sin(theta_fov/2.0)
+      do ipix = 0,sky%npix-1
+
+         ! Get theta and phi angles corresponding to pixel.
+         if(sky%pix_scheme == S2_SKY_RING) then
+            call pix2ang_ring(sky%nside, ipix, theta, phi)
+         else if(sky%pix_scheme == S2_SKY_NEST) then
+            call pix2ang_nest(sky%nside, ipix, theta, phi)
+         else
+            call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_fov')
+         end if
+
+         ! Zero outside fov.
+         select case(method)
+
+             case(S2_SKY_FOV_METHOD_CIRCLE)
+                if (theta > theta_fov/2.0) sky%map(ipix) = 0e0
+
+             case(S2_SKY_FOV_METHOD_SQUARE)
+                vec = s2_vect_init(1.0, real(theta,s2_sp), real(phi,s2_sp))
+                call s2_vect_convert(vec, S2_VECT_TYPE_CART)
+                x = s2_vect_get_x(vec)
+                call s2_vect_free(vec)
+                if( (abs(x(1)) > L/2.0) .or. (abs(x(2)) > L/2.0) ) then
+                   sky%map(ipix) = 0e0
+                end if
+
+             case default
+                call s2_error(S2_ERROR_SKY_FOV_METHOD_INVALID, 's2_sky_fov', &
+                     comment_add='Invalid fov method type specifier')
+            
+         end select
+
+      end do
+
+      ! Ensure alm not defined.
+      if(allocated(sky%alm)) deallocate(sky%alm)
+      sky%alm_status = .false.
+
+    end subroutine s2_sky_fov
+
+
+    !--------------------------------------------------------------------------
     ! s2_sky_extract_ab_fsht
     !
     !! Extra an ecp (equispaced) sampled theta-phi array over the sphere

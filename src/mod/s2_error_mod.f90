@@ -32,7 +32,7 @@ module s2_error_mod
   ! Global variables
   !---------------------------------------
 
-  integer, parameter :: S2_ERROR_NUM = 33
+  integer, parameter :: S2_ERROR_NUM = 34
 
   integer, public, parameter :: &
     S2_ERROR_NONE = 0, &
@@ -56,18 +56,19 @@ module s2_error_mod
     S2_ERROR_SKY_FTYPE_INVALID = 18, &
     S2_ERROR_SKY_FILE_EXISTS = 19, &
     S2_ERROR_SKY_FILE_INVALID = 20, &
-    S2_ERROR_DISNT_BND_INVALID = 21, &
-    S2_ERROR_PL_LMAX_LOW = 22, &
-    S2_ERROR_PL_SIZE_INVALID = 23, &
-    S2_ERROR_PL_FILE_EXISTS = 24, &
-    S2_ERROR_PL_FILE_INVALID = 25, &
-    S2_ERROR_PL_PLOT_FAIL = 26, &
-    S2_ERROR_WNOISE_TYPE_INVALID = 27, &
-    S2_ERROR_VECT_TYPE_INVALID = 28, &
-    S2_ERROR_VECT_CART_DIM_INVALID = 29, &
-    S2_ERROR_YLM_ARG_INVALID = 30, &
-    S2_ERROR_PROJ_METHOD_INVALID = 31, &
-    S2_ERROR_PROJ_FIELD_INVALID = 32
+    S2_ERROR_SKY_FOV_METHOD_INVALID = 21, &
+    S2_ERROR_DISNT_BND_INVALID = 22, &
+    S2_ERROR_PL_LMAX_LOW = 23, &
+    S2_ERROR_PL_SIZE_INVALID = 24, &
+    S2_ERROR_PL_FILE_EXISTS = 25, &
+    S2_ERROR_PL_FILE_INVALID = 26, &
+    S2_ERROR_PL_PLOT_FAIL = 27, &
+    S2_ERROR_WNOISE_TYPE_INVALID = 28, &
+    S2_ERROR_VECT_TYPE_INVALID = 29, &
+    S2_ERROR_VECT_CART_DIM_INVALID = 30, &
+    S2_ERROR_YLM_ARG_INVALID = 31, &
+    S2_ERROR_PROJ_METHOD_INVALID = 32, &
+    S2_ERROR_PROJ_FIELD_INVALID = 33
 
 
 
@@ -99,6 +100,7 @@ module s2_error_mod
       'Invalid function type                                                    ', &
       'Full sky (map and alm) fits file already exists                          ', &
       'Full sky (map and alm) fits file invalid                                 ', &
+      'Field-of-view method type invalid                                        ', &
       'Warning: Invalid bounds when sampling uniform distribution               ', &
       'Warning: Alm greater lmax than pl spectrum                               ', &
       'Invalid pl spectrum sizes                                                ', &
@@ -135,6 +137,7 @@ module s2_error_mod
       .true.,  &
       .true.,  &
       .false., &
+      .true.,  &   
       .true.,  &   
       .true.,  &   
       .true.,  &   
