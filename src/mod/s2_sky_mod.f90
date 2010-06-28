@@ -35,7 +35,7 @@ module s2_sky_mod
     s2_sky_init, &
     s2_sky_free, s2_sky_remove_map, &
     s2_sky_compute_alm, s2_sky_compute_alm_iter, &
-    s2_sky_compute_map, &
+    s2_sky_compute_map, s2_sky_irregular_invsht, &
     s2_sky_map_convert, &
     s2_sky_conv, &
     s2_sky_offset, s2_sky_scale,  &
@@ -120,6 +120,12 @@ module s2_sky_mod
 
   !! Alm fits file type.
   integer, public, parameter :: S2_SKY_FILE_TYPE_ALM = 3
+
+  !! Circle method type for setting field-of-view.
+  integer, public, parameter :: S2_SKY_FOV_METHOD_CIRCLE = 1
+
+  !! Square method type for setting field-of-view.
+  integer, public, parameter :: S2_SKY_FOV_METHOD_SQUARE = 2
 
 
   !---------------------------------------
@@ -1304,7 +1310,6 @@ module s2_sky_mod
     end subroutine s2_sky_compute_alm_iter
 
 
-
     !--------------------------------------------------------------------------
     ! s2_sky_compute_map
     ! 
@@ -1398,6 +1403,117 @@ module s2_sky_mod
       sky%map_status = .true.
 
     end subroutine s2_sky_compute_map
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_irregular_invsht
+    ! 
+    !! Compute real space values of a sky, on an irregular grid, from its
+    !! spherical harmonic coefficients.  Errors occur
+    !! if the initialised sky does not have an alm already defined.
+    !!
+    !! Notes:
+    !!   - Implementation is based on separation of vairables, however true 
+    !!     separation of variables is not possible since irregular (theta,phi)
+    !!     grid may not be separable (for example, every point inthe grid may 
+    !!     have different (theta,phi)).
+    !!
+    !! Variables:
+    !!   - sky: The sky to compute the map for.
+    !!   - f(0:N-1): The output function computed, defined over the irregular 
+    !!     grid.
+    !!   - N: The number of points on the irregular grid.
+    !!   - thetas(0:N-1): The theta positions of the irregular grid.
+    !!   - phis(0:N-1): The phi positions of the irregular grid.
+    !!   - [azisym]: Logical specifying whether the function is
+    !!     azimuthally symmetric, in which case summations over m are
+    !!     truncated to m=0 only.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   June 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_irregular_invsht(sky, f, N, thetas, phis, azisym)
+
+      use s2_dl_mod, only: s2_dl_beta_operator
+
+      type(s2_sky), intent(in) :: sky
+      integer, intent(in) :: N
+      real(s2_dp), intent(in) :: thetas(0:N-1)
+      real(s2_dp), intent(in) :: phis(0:N-1)
+      real(s2_dp), intent(out) :: f(0:N-1)
+      logical, intent(in), optional :: azisym
+
+      complex(s2_dpc), allocatable :: fmtheta(:,:)
+      real(s2_dp), pointer :: dl(:,:)
+      integer :: lmax, mmax, itheta, el, m
+      integer :: fail = 0
+      complex(s2_dpc) :: I
+      
+      I = cmplx(0d0, 1d0)
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_irregular_invsht')
+      end if
+
+      ! Check alms defined.
+      if(.not. sky%alm_status) then
+         call s2_error(S2_ERROR_SKY_ALM_NOT_DEF, 's2_sky_irregular_invsht')
+         return
+      end if
+
+      ! Allocate temporary space.
+      lmax = sky%lmax
+      mmax = sky%mmax
+      if(present(azisym)) then 
+         if(azisym) then
+            mmax = 0
+         end if
+      end if
+      allocate(fmtheta(0:mmax,0:N-1), stat=fail)
+      if(fail /= 0) then
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_irregular_invsht')
+      end if
+      fmtheta(0:mmax,0:N-1) = 0e0
+
+      ! Compute f_m(theta).
+      do itheta = 0,N-1
+         do el = 0,lmax
+            ! Compute dlmns.
+            allocate(dl(-el:el,-el:el), stat=fail)
+            if(fail /= 0) then
+               call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_irregular_invsht')
+            end if
+            call s2_dl_beta_operator(dl, thetas(itheta), el)
+
+            do m = 0,min(el,mmax)
+               fmtheta(m, itheta) = fmtheta(m, itheta)  + &
+                    sqrt((2.0*el+1.0)/(4.0*PI)) * dl(m,0) * sky%alm(el,m)
+            end do
+
+            ! Free dlmns.
+            deallocate(dl)
+         end do
+
+      end do
+
+      ! Compute f(theta,phi).
+      f(0:N-1) = 0e0
+      do itheta = 0,N-1
+         f(itheta) =  fmtheta(0,itheta)
+         do m = 1,mmax
+            f(itheta) = f(itheta) &
+                 + 2 * real(exp(I*m*phis(itheta)) * fmtheta(m,itheta),s2_dp)
+         end do
+      end do
+
+      ! Free memory.
+      deallocate(fmtheta)
+
+    end subroutine s2_sky_irregular_invsht
 
 
     !--------------------------------------------------------------------------
@@ -2673,6 +2789,7 @@ module s2_sky_mod
       end do
 
     end subroutine s2_sky_admiss_dil
+
 
     !--------------------------------------------------------------------------
     ! s2_sky_extract_ab_fsht

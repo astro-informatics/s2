@@ -373,7 +373,11 @@ module s2_proj_mod
     !!
     !! Notes:
     !!   - Space to store image must be allocated before calling this routine.
-!!   - Warning: currently restricted to low lmax.
+    !!   - The associate Legendre functions computed using Numerical Recipes
+    !!     routines appear to be stable to lmax~128 (otherwise return NaN), 
+    !!     while using Wigner dlmn matrices is relatively slow, but can run 
+    !!     at very high band-limits.  The current impleentation is based on 
+    !!     Wigner dlmn matrices.
     !!
     !! Variables:
     !!   - sky: Sky to project to planar image.
@@ -401,10 +405,14 @@ module s2_proj_mod
       integer :: N, lmax_use, i, j, k, el, m
       integer :: fail = 0
       real(s2_sp), allocatable :: grid(:)
-      complex(s2_spc), allocatable :: alm(:,:)
+!!$      complex(s2_spc), allocatable :: alm(:,:)
       real(s2_sp) :: x(1:3)
       real(s2_dp) :: theta, phi
       type(s2_vect) :: vec
+
+
+      integer :: iang
+      real(s2_dp), allocatable :: thetas(:), phis(:), f(:)
 
       ! Check object not already initialised.
       if(proj%init) then
@@ -437,15 +445,22 @@ module s2_proj_mod
       ! Ensure sky alms are defined and compute otherwise.
       call s2_sky_compute_alm(sky, lmax_use, lmax_use)
 
-      ! Get alms.
-      allocate(alm(0:lmax_use, 0:lmax_use), stat=fail)
+!!$      ! Get alms.
+!!$      allocate(alm(0:lmax_use, 0:lmax_use), stat=fail)
+!!$      if(fail /= 0) then
+!!$        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
+!!$             's2_proj_projection_harmonic_interp')
+!!$      end if
+!!$      call s2_sky_get_alm(sky, alm)
+
+      ! Compute (theta,phi) grid points.
+      allocate(thetas(0:N*N-1), stat=fail)
+      allocate(phis(0:N*N-1), stat=fail)
       if(fail /= 0) then
         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
              's2_proj_projection_harmonic_interp')
       end if
-      call s2_sky_get_alm(sky, alm)
-
-      ! Project on planar grid.
+      iang = 0
       do i = 0,N-1
          x(1) = grid(i)
          do j = 0,N-1             
@@ -455,35 +470,72 @@ module s2_proj_mod
             ! Compute spherical corrdinates of planar grid point.
             vec = s2_vect_init(x)
             call s2_vect_convert(vec, S2_VECT_TYPE_S2)
-            theta = s2_vect_get_theta(vec)
-            phi = s2_vect_get_phi(vec)
+            thetas(iang) = s2_vect_get_theta(vec)
+            phis(iang) = s2_vect_get_phi(vec)
+            iang = iang + 1
             call s2_vect_free(vec)
-
-            ! Compute projected image
-            proj%image(i,j) = 0e0
-            do el = 0,lmax_use
-!write(*,*) 'el=', el
-!write(*,*) proj%image(i,j)
-               proj%image(i,j) = proj%image(i,j) + &
-                    real(alm(el,0)) * s2_ylm_eval_leg(el, 0, theta, phi)
-!write(*,*) proj%image(i,j)
-
-               do m = 1,min(el,lmax_use)
-!write(*,*) 'm=',m
-                  proj%image(i,j) = proj%image(i,j) + &
-                       2.0 * real(alm(el,m) * s2_ylm_eval_leg(el, m, theta, phi))
-!write(*,*) proj%image(i,j)
-               end do
-!write(*,*)
-!write(*,*) 
-            end do
 
          end do
       end do
 
+      ! Compute irregular inverse spherical harmonic transform.
+      allocate(f(0:N*N-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
+             's2_proj_projection_harmonic_interp')
+      end if
+      call s2_sky_irregular_invsht(sky, f, N*N, thetas, phis)
+
+      ! Extact image.
+      iang = 0
+      do i = 0,N-1
+         do j = 0,N-1                
+            proj%image(i,j) = f(iang)
+            iang = iang + 1
+         end do
+      end do
+
+!!$      ! Project on planar grid.
+!!$      do i = 0,N-1
+!!$         x(1) = grid(i)
+!!$         do j = 0,N-1             
+!!$            x(2) = grid(j)
+!!$            x(3) = sqrt(1.0 - x(1)**2 + x(2)**2)
+!!$
+!!$            ! Compute spherical corrdinates of planar grid point.
+!!$            vec = s2_vect_init(x)
+!!$            call s2_vect_convert(vec, S2_VECT_TYPE_S2)
+!!$            theta = s2_vect_get_theta(vec)
+!!$            phi = s2_vect_get_phi(vec)
+!!$            call s2_vect_free(vec)
+!!$
+!!$            ! Compute projected image
+!!$            proj%image(i,j) = 0e0
+!!$            do el = 0,lmax_use
+!!$!write(*,*) 'el=', el
+!!$!write(*,*) proj%image(i,j)
+!!$               proj%image(i,j) = proj%image(i,j) + &
+!!$                    real(alm(el,0)) * s2_ylm_eval_leg(el, 0, theta, phi)
+!!$!write(*,*) proj%image(i,j)
+!!$
+!!$               do m = 1,min(el,lmax_use)
+!!$!write(*,*) 'm=',m
+!!$                  proj%image(i,j) = proj%image(i,j) + &
+!!$                       2.0 * real(alm(el,m) * s2_ylm_eval_leg(el, m, theta, phi))
+!!$!write(*,*) proj%image(i,j)
+!!$               end do
+!!$!write(*,*)
+!!$!write(*,*) 
+!!$            end do
+!!$
+!!$         end do
+!!$      end do
+
       ! Free memory.
       deallocate(grid)
-      deallocate(alm)
+!!$      deallocate(alm)
+      deallocate(f)
+      deallocate(thetas, phis)
       
     end subroutine s2_proj_projection_harmonic_interp
 

@@ -295,6 +295,7 @@ module s2_ylm_mod
     !! Notes:
     !!   - Numerical recipies comment:
     !!     Computes the associated Legendre polynomial P_m^l(x).
+    !!   - Includes (-1)^m factor inside 
     !!
     !! Variables:
     !!   - el: Legendre function l parameter.
@@ -372,55 +373,55 @@ module s2_ylm_mod
     !   October 2007 - Written by Jason McEwen
     !--------------------------------------------------------------------------
 
-		function logfact(n) result(logfactn)
+    function logfact(n) result(logfactn)
 
-			integer, intent(in) :: n
-			real(s2_dp) :: logfactn
-	
-			real(s2_dp) :: y, temp, sum, c(6), loggamma, x
-			integer :: nn
-	
-			if (n < 0) then
-	
-				call s2_error(S2_ERROR_YLM_ARG_INVALID, 'logfact', &
-					comment_add='Factorial argument negative')
-	
-			else
-	
-				! The engine of this function actually calculates the gamma function,
-				! for which the real argument is x = n + 1.
-	
-				x = real(n, s2_dp) + 1.0
-	
-				! Table of fitting constants.
-	
-				c(1) = 76.18009172947146
-				c(2) = - 86.50532032941677
-				c(3) = 24.01409824083091
-				c(4) = - 1.231739572450155
-				c(5) = 0.1208650973866179e-2
-				c(6) = - 0.5395239384953e-5
-	
-				! Add up fit.
-	
-				temp = x + 5.5 - (x + 0.5) * log(x + 5.5);
-				sum = 1.000000000190015
-				y = x
-	
-				do nn = 1, 6
-					y = y + 1.0;
-					sum = sum + c(nn) / y;
-				end do
-	
-				loggamma = - temp + log(2.5066282746310005 * sum / x);
-	
-			end if
-	
-			! Finally make explicit the conversion back to log of the factorial.
-	
-			logfactn = loggamma
-	
-		end function logfact
+      integer, intent(in) :: n
+      real(s2_dp) :: logfactn
+
+      real(s2_dp) :: y, temp, sum, c(6), loggamma, x
+      integer :: nn
+
+      if (n < 0) then
+
+         call s2_error(S2_ERROR_YLM_ARG_INVALID, 'logfact', &
+              comment_add='Factorial argument negative')
+
+      else
+
+         ! The engine of this function actually calculates the gamma function,
+         ! for which the real argument is x = n + 1.
+
+         x = real(n, s2_dp) + 1.0
+
+         ! Table of fitting constants.
+
+         c(1) = 76.18009172947146
+         c(2) = - 86.50532032941677
+         c(3) = 24.01409824083091
+         c(4) = - 1.231739572450155
+         c(5) = 0.1208650973866179e-2
+         c(6) = - 0.5395239384953e-5
+
+         ! Add up fit.
+
+         temp = x + 5.5 - (x + 0.5) * log(x + 5.5);
+         sum = 1.000000000190015
+         y = x
+
+         do nn = 1, 6
+            y = y + 1.0;
+            sum = sum + c(nn) / y;
+         end do
+
+         loggamma = - temp + log(2.5066282746310005 * sum / x);
+
+      end if
+
+      ! Finally make explicit the conversion back to log of the factorial.
+
+      logfactn = loggamma
+
+    end function logfact
 
 
 end module s2_ylm_mod
