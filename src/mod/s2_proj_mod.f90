@@ -256,8 +256,11 @@ module s2_proj_mod
       umax = real(lmax,s2_sp) / (2.0 * sqrt(2.0) * pi * cos(theta_fov/2.0))
       dx = 1.0 / (2.0 * umax)
       image_size_ideal = sqrt(2.0) * sin(theta_fov/2.0)
-      N = floor(image_size_ideal / dx) + 1
-      image_size = (N-1) * dx
+      N = ceiling(image_size_ideal / dx)
+      ! If natural N is not integer, increase N to ensure achieve at least 
+      ! required fov.
+
+      image_size = N * dx
 
     end subroutine s2_proj_compute_params
 
@@ -325,7 +328,7 @@ module s2_proj_mod
       if(fail /= 0) then
         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_projection_nearest_neighbour')
       end if
-      grid = (/  (k*proj%dx - proj%image_size/2.0, k = 0,N-1) /) 
+      grid = (/  ((k+0.5)*proj%dx - proj%image_size/2.0, k = 0,N-1) /) 
 
       ! Ensure sky map is defined and compute otherwise.
       call s2_sky_compute_map(sky, nside_use)
@@ -440,7 +443,7 @@ module s2_proj_mod
         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
              's2_proj_projection_harmonic_interp')
       end if
-      grid = (/  (k*proj%dx - proj%image_size/2.0, k = 0,N-1) /) 
+      grid = (/  ((k+0.5)*proj%dx - proj%image_size/2.0, k = 0,N-1) /) 
 
       ! Ensure sky alms are defined and compute otherwise.
       call s2_sky_compute_alm(sky, lmax_use, lmax_use)
