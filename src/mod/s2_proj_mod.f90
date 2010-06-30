@@ -255,7 +255,7 @@ module s2_proj_mod
 
       umax = real(lmax,s2_sp) / (2.0 * pi * cos(theta_fov/2.0))
       dx = 1.0 / (2.0 * umax)
-      image_size_ideal = sqrt(2.0) * sin(theta_fov/2.0)
+      image_size_ideal = 2.0 * sin(theta_fov/2.0)
       N = ceiling(image_size_ideal / dx)
       ! If natural N is not integer, increase N to ensure achieve at least 
       ! required fov.
@@ -338,7 +338,12 @@ module s2_proj_mod
          x(1) = grid(i)
          do j =0,N-1             
             x(2) = grid(j)
-            x(3) = sqrt(1.0 - x(1)**2 + x(2)**2)
+            if(x(1)**2 + x(2)**2 > 1.0) then
+               x(3) = 0 
+                 ! Account for points outside disk with unit radius (will ensure map to theta=pi/2, which is outside fov.).
+            else
+               x(3) = sqrt(1.0 - x(1)**2 - x(2)**2)
+            end if
 
             ! Compute spherical corrdinates of planar grid point.
             vec = s2_vect_init(x)
@@ -347,18 +352,24 @@ module s2_proj_mod
             phi = s2_vect_get_phi(vec)
             call s2_vect_free(vec)
 
-            ! Find pixel index corresponding to position on sphere.
-            if(pix_scheme == S2_SKY_RING) then
-               call ang2pix_ring(nside_use, theta, phi, ipix)
-            else if(pix_scheme == S2_SKY_NEST) then
-               call ang2pix_nest(nside_use, theta, phi, ipix)
-            else
-               call s2_error(S2_ERROR_SKY_PIX_INVALID, &
-                    's2_proj_projection_nearest_neighbour')
-            end if
+           if(theta <= proj%theta_fov/2.0) then
 
-            ! Set image value.
-            proj%image(i,j) = s2_sky_get_map_pix(sky, ipix)
+              ! Find pixel index corresponding to position on sphere.
+              if(pix_scheme == S2_SKY_RING) then
+                 call ang2pix_ring(nside_use, theta, phi, ipix)
+              else if(pix_scheme == S2_SKY_NEST) then
+                 call ang2pix_nest(nside_use, theta, phi, ipix)
+              else
+                 call s2_error(S2_ERROR_SKY_PIX_INVALID, &
+                      's2_proj_projection_nearest_neighbour')
+              end if
+
+              ! Set image value.
+              proj%image(i,j) = s2_sky_get_map_pix(sky, ipix)
+
+           else
+              proj%image(i,j) = 0.0
+           end if
 
          end do
       end do
@@ -468,7 +479,12 @@ module s2_proj_mod
          x(1) = grid(i)
          do j = 0,N-1             
             x(2) = grid(j)
-            x(3) = sqrt(1.0 - x(1)**2 + x(2)**2)
+            if(x(1)**2 + x(2)**2 > 1.0) then
+               x(3) = 0 
+                 ! Account for points outside disk with unit radius (will ensure map to theta=pi/2, which is outside fov.).
+            else
+               x(3) = sqrt(1.0 - x(1)**2 - x(2)**2)
+            end if
 
             ! Compute spherical corrdinates of planar grid point.
             vec = s2_vect_init(x)
@@ -492,8 +508,12 @@ module s2_proj_mod
       ! Extact image.
       iang = 0
       do i = 0,N-1
-         do j = 0,N-1                
-            proj%image(i,j) = f(iang)
+         do j = 0,N-1 
+            if (thetas(iang) <= proj%theta_fov/2.0) then
+               proj%image(i,j) = f(iang)
+            else
+               proj%image(i,j) = 0.0
+            end if
             iang = iang + 1
          end do
       end do
