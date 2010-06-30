@@ -253,7 +253,7 @@ module s2_proj_mod
              comment_add='lmax is zero')
       end if
 
-      umax = real(lmax,s2_sp) / (2.0 * sqrt(2.0) * pi * cos(theta_fov/2.0))
+      umax = real(lmax,s2_sp) / (2.0 * pi * cos(theta_fov/2.0))
       dx = 1.0 / (2.0 * umax)
       image_size_ideal = sqrt(2.0) * sin(theta_fov/2.0)
       N = ceiling(image_size_ideal / dx)
