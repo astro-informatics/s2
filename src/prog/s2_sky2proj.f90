@@ -48,13 +48,11 @@ program s2_sky2proj
   type(s2_sky) :: sky
   type(s2_proj) :: proj
 
-
-
-
-  integer :: nsphere, nop, j
+  logical :: save_op = .false.
+  character(len=S2_STRING_LEN) :: filename_op
+  integer :: nsphere, nop, j, fileid
   integer, allocatable :: op(:,:)
   real(s2_sp), allocatable :: xmap(:)
-
 
   ! Parse input parameters.
   call parse_options()
@@ -106,30 +104,48 @@ program s2_sky2proj
   ! Write image to file.
   call s2_proj_write_image_file(proj, trim(filename_out))
 
+  ! Write the projection operator to file.
+  if (save_op) then
 
+     ! Output projection operator file only defined for nearest 
+     ! neighbour projection method at present.
+     if( method /= S2_PROJ_METHOD_NEAREST_NEIGHBOUR) then
+        call s2_error(S2_ERROR_PROJ_METHOD_INVALID, 's2_sky2proj', &
+             comment_add='Output projection operator only defined for nearst neighbour projection.')
+     end if
 
+     if (nside == 0) then
+        call s2_proj_operator_nearest_neighbour(proj, nop=nop, op=op, nsphere=nsphere, xmap=xmap)
+     else
+        call s2_proj_operator_nearest_neighbour(proj, nside, nop, op, nsphere, xmap)
+     end if
 
-  if (nside == 0) then
-     call s2_proj_operator_nearest_neighbour(proj, nop=nop, op=op, nsphere=nsphere, xmap=xmap)
-  else
-     call s2_proj_operator_nearest_neighbour(proj, nside, nop, op, nsphere, xmap)
+     ! Open file.
+     fileid = 43
+     open(unit=fileid, file=trim(filename_op), status='new', action='write', &
+          form='formatted')
+
+     write(fileid,'(a)') 'op = [...'
+     do j = 0,nop-1
+        write(fileid,'(i20,a,i20,a)') op(j,0), ', ', op(j,1), '; ...'
+     end do
+     write(fileid,'(a)') ']'
+
+     write(fileid,'(a)') ''
+
+     write(fileid,'(a)') 'xmap = [...'
+     do j = 0,nsphere-1
+        write(fileid,'(e20.10,a)') xmap(j), '; ...'
+     end do
+     write(fileid,'(a)') ']'
+
+     ! Close file.
+     close(fileid)
+
+     ! Free memory.
+     deallocate(xmap, op)
+
   end if
-
-  write(*,'(a)') 'op = [...'
-  do j = 0,nop-1
-     write(*,'(i20,a,i20,a)') op(j,0), ', ', op(j,1), '; ...'
-  end do
-  write(*,'(a)') ']'
-
-  write(*,'(a)') 'xmap = [...'
-  do j = 0,nsphere-1
-     write(*,'(e20.10,a)') xmap(j), '; ...'
-  end do
-  write(*,'(a)') ']'
-
-  deallocate(xmap, op)
-
-
 
   ! Free memory.
   call s2_sky_free(sky)
@@ -187,6 +203,8 @@ program s2_sky2proj
             write(*,'(a)') '                   [-theta_fov theta_fov (in degrees)]'
             write(*,'(a)') '                   [-nside nside (optional)]'
             write(*,'(a)') '                   [-lmax lmax (optional)]'
+            write(*,'(a)') '                   [-op_file filename_op (optional)]'
+
             stop
           
           case ('-inp')
@@ -209,6 +227,10 @@ program s2_sky2proj
 
           case ('-lmax')
             read(arg,*) lmax
+
+          case ('-op_file')
+            filename_op = trim(arg)
+            save_op = .true.
 
           case default
             print '("unknown option ",a4," ignored")', opt            
