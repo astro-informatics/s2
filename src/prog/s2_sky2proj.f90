@@ -48,6 +48,14 @@ program s2_sky2proj
   type(s2_sky) :: sky
   type(s2_proj) :: proj
 
+
+
+
+  integer :: nsphere, nop, j
+  integer, allocatable :: op(:,:)
+  real(s2_sp), allocatable :: xmap(:)
+
+
   ! Parse input parameters.
   call parse_options()
   theta_fov = theta_fov * pi / 180e0
@@ -97,6 +105,31 @@ program s2_sky2proj
 
   ! Write image to file.
   call s2_proj_write_image_file(proj, trim(filename_out))
+
+
+
+
+  if (nside == 0) then
+     call s2_proj_operator_nearest_neighbour(proj, nop=nop, op=op, nsphere=nsphere, xmap=xmap)
+  else
+     call s2_proj_operator_nearest_neighbour(proj, nside, nop, op, nsphere, xmap)
+  end if
+
+  write(*,'(a)') 'op = [...'
+  do j = 0,nop-1
+     write(*,'(i20,a,i20,a)') op(j,0), ', ', op(j,1), '; ...'
+  end do
+  write(*,'(a)') ']'
+
+  write(*,'(a)') 'xmap = [...'
+  do j = 0,nsphere-1
+     write(*,'(e20.10,a)') xmap(j), '; ...'
+  end do
+  write(*,'(a)') ']'
+
+  deallocate(xmap, op)
+
+
 
   ! Free memory.
   call s2_sky_free(sky)

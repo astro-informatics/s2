@@ -27,6 +27,7 @@ module s2_proj_mod
   public :: &
     s2_proj_init, &
     s2_proj_free, &
+    s2_proj_operator_nearest_neighbour, &
     s2_proj_write_image_file
 
 
@@ -378,6 +379,182 @@ module s2_proj_mod
       deallocate(grid)
       
     end subroutine s2_proj_projection_nearest_neighbour
+
+
+    !--------------------------------------------------------------------------
+    ! s2_proj_operator_nearest_neighbour
+    !
+    !! Compute sparse representaion of linear operation to perform near 
+    !! neighbour projection.  The map vector containing the pixels on the 
+    !! sphere within the fov is also returned.
+    !!
+    !! Notes:
+    !!   - Space for op and xmap allocate herein; must be freed by calling 
+    !!     routine.
+    !!
+    !! Variables:
+    !!   - proj: Projected sky.
+    !!   - [nside]: Optional Healpix nside to consider in map of sky when 
+    !!     projecting image (if not provided taken from sky).
+    !!   - nop: Number of non-zero enties in the projection operator.
+
+    !!   - op(0:nop-1,0:1): Projection operator (specifies indices of
+    !!     unit entries in operator matrix).
+    !!   - nsphere: Number of pixels on the sphere within the fov.
+    !!   - xmap(0:nsphere-1): Vector of pixels values on the sphere within 
+    !!     the fov.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   July 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_proj_operator_nearest_neighbour(proj, nside, nop, op, nsphere, xmap)
+
+      use s2_vect_mod
+      use pix_tools, only: ang2pix_ring, ang2pix_nest, pix2ang_ring
+
+        ! Inout since may need to compute map.
+      type(s2_proj), intent(inout) :: proj
+      integer, intent(in), optional :: nside
+      integer, intent(out) :: nop
+      integer, allocatable, intent(out) :: op(:,:)
+      integer, intent(out) :: nsphere
+      real(s2_sp), allocatable, intent(out) :: xmap(:)
+
+      integer :: nside_use, pix_scheme, npix
+      integer :: fail = 0
+      real(s2_dp) :: theta, phi
+      integer :: ipix, i, j, k, iang, iop
+      real(s2_sp) :: x(1:3)
+      type(s2_vect) :: vec
+      real(s2_sp), allocatable :: map(:)
+      integer, allocatable :: opx(:,:)
+      real(s2_sp), allocatable :: grid(:)
+
+      ! Check object not already initialised.
+      if(.not. proj%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_proj_operator_nearest_neighbour')
+        return
+      end if
+
+      ! Only projection of upper hemisphere supported at present.
+      if(proj%field /= S2_PROJ_FIELD_HEMISPHERE_UPPER) then
+         call s2_error(S2_ERROR_PROJ_FIELD_INVALID, 's2_proj_operator_nearest_neighbour', &
+              comment_add='Only upper hemisphere supported at present.')
+      end if
+
+      ! Get local parameters.
+      if(present(nside)) then
+         nside_use = nside
+      else
+         nside_use = s2_sky_get_nside(proj%parent)
+      end if
+
+      ! Ensure sky map is defined and compute otherwise.
+      call s2_sky_compute_map(proj%parent, nside_use)
+
+      ! Ensure map in RING pixelisation scheme.
+      call s2_sky_map_convert(proj%parent, S2_SKY_RING)
+      pix_scheme = s2_sky_get_pix_scheme(proj%parent)
+      npix = s2_sky_get_npix(proj%parent)
+
+      ! Define planar grid.
+      allocate(grid(0:proj%N-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_nearest_neighbour')
+      end if
+      grid = (/  ((k+0.5)*proj%dx - proj%image_size/2.0, k = 0,proj%N-1) /) 
+
+      ! Get xmap vector.
+      allocate(map(0:npix-1), stat=fail)
+      if(fail /= 0) then
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_nearest_neighbour')
+      end if
+      call s2_sky_get_map(proj%parent, map)
+
+      nsphere = 0
+      do ipix = 0,npix-1 
+         call pix2ang_ring(nside_use, ipix, theta, phi)
+         if(theta > proj%theta_fov/2.0) then
+            nsphere = ipix
+            exit            
+         end if
+      end do
+
+      allocate(xmap(0:nsphere-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_nearest_neighbour')
+      end if
+      xmap(0:nsphere-1) = map(0:nsphere-1)
+
+      ! Allocate maximum required space for sparse representation of operator.
+      allocate(opx(0:proj%N*proj%N-1, 0:1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_nearest_neighbour')
+      end if      
+
+      ! Construct operator.
+      iang = 0
+      iop = 0
+      do i = 0,proj%N-1
+         x(1) = grid(i)
+         do j =0,proj%N-1             
+            x(2) = grid(j)
+            if(x(1)**2 + x(2)**2 > 1.0) then
+               x(3) = 0 
+                 ! Account for points outside disk with unit radius 
+                 ! (will ensure map to theta=pi/2, which is outside fov).
+            else
+               x(3) = sqrt(1.0 - x(1)**2 - x(2)**2)
+            end if
+
+            ! Compute spherical corrdinates of planar grid point.
+            vec = s2_vect_init(x)
+            call s2_vect_convert(vec, S2_VECT_TYPE_S2)
+            theta = s2_vect_get_theta(vec)
+            phi = s2_vect_get_phi(vec)
+            call s2_vect_free(vec)
+
+           if(theta <= proj%theta_fov/2.0) then
+
+              ! Find pixel index corresponding to position on sphere.
+              if(pix_scheme == S2_SKY_RING) then
+                 call ang2pix_ring(nside_use, theta, phi, ipix)
+              else if(pix_scheme == S2_SKY_NEST) then
+                 call ang2pix_nest(nside_use, theta, phi, ipix)
+              else
+                 call s2_error(S2_ERROR_SKY_PIX_INVALID, &
+                      's2_proj_operator_nearest_neighbour')
+              end if
+              if(ipix < nsphere) then
+                 ! Ensure only include pixels within fov.
+                 ! (Otherwise could find theta within fov, but nearest pixel outside fov).
+                 opx(iop, 0) = iang
+                 opx(iop, 1) = ipix
+                 iop = iop + 1
+              end if
+           end if
+
+           iang = iang + 1
+         end do
+      end do
+      nop = iop
+
+      ! Copy required operator points.
+      allocate(op(0:nop-1, 0:1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_nearest_neighbour')
+      end if   
+      op(0:nop-1, 0:1) = opx(0:nop-1, 0:1)
+
+      ! Free memory.
+      deallocate(grid)
+      deallocate(map)
+      deallocate(opx)
+
+    end subroutine s2_proj_operator_nearest_neighbour
 
 
     !--------------------------------------------------------------------------
