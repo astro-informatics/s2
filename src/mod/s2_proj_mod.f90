@@ -163,7 +163,7 @@ module s2_proj_mod
             call s2_proj_projection_nearest_neighbour(sky, proj, nside)
 
          case(S2_PROJ_METHOD_HARMONIC_INTERP)
-            call s2_proj_projection_harmonic_interp(sky, proj)
+            call s2_proj_projection_harmonic_interp(sky, proj, lmax_use)
 
          case default
             call s2_error(S2_ERROR_PROJ_METHOD_INVALID, 's2_proj_init', &
