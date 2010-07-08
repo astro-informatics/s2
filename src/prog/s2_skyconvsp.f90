@@ -72,7 +72,7 @@ program s2_skyconvsp
 
   ! Perform convolution.
 !  sigma(1) = 0.03
-  support_theta = 2.0 * sigma(1)
+  support_theta = 4.0 * sigma(1)
   call s2_sky_conv_space(sky, support_theta, kernel, sigma)
 
   ! Save output file.

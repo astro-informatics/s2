@@ -161,6 +161,7 @@ module s2_proj_mod
 
          case(S2_PROJ_METHOD_NEAREST_NEIGHBOUR)
             call s2_proj_projection_nearest_neighbour(sky, proj, nside)
+!            call s2_proj_projection_kernel(sky, proj, nside)
 
          case(S2_PROJ_METHOD_HARMONIC_INTERP)
             call s2_proj_projection_harmonic_interp(sky, proj, lmax_use)
@@ -341,7 +342,8 @@ module s2_proj_mod
             x(2) = grid(j)
             if(x(1)**2 + x(2)**2 > 1.0) then
                x(3) = 0 
-                 ! Account for points outside disk with unit radius (will ensure map to theta=pi/2, which is outside fov.).
+                 ! Account for points outside disk with unit radius 
+                 ! (will ensure map to theta=pi/2, which is outside fov).
             else
                x(3) = sqrt(1.0 - x(1)**2 - x(2)**2)
             end if
@@ -558,6 +560,124 @@ module s2_proj_mod
 
 
     !--------------------------------------------------------------------------
+    ! s2_proj_projection_kernel
+    !
+    !! Project sky to planar image using convolution kernel projection method.
+    !!
+    !! Notes:
+    !!   - Space to store image must be allocated before calling this routine.
+    !!
+    !! Variables:
+    !!   - sky: Sky to project to planar image.
+    !!   - proj: Projected sky.
+    !!   - [nside]: Optional Healpix nside to consider in map of sky when 
+    !!     projecting image (if not provided taken from sky).
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   July 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_proj_projection_kernel(sky, proj, nside)
+
+      use s2_vect_mod
+      use pix_tools, only: ang2pix_ring, ang2pix_nest
+      
+      interface 
+         function kernel(theta, param) result(val)
+           use s2_types_mod
+           real(s2_dp), intent(in) :: theta
+           real(s2_dp), intent(in), optional :: param(:)
+           real(s2_dp) :: val
+         end function kernel
+      end interface
+
+      type(s2_sky), intent(inout) :: sky 
+        ! Inout since may need to compute map.
+      type(s2_proj), intent(inout) :: proj
+      integer, intent(in), optional :: nside
+
+      integer :: N, nside_use, pix_scheme, i, j, k
+      integer :: fail = 0
+      real(s2_sp), allocatable :: grid(:)
+      real(s2_sp) :: x(1:3)
+      real(s2_dp) :: theta, phi
+      type(s2_vect) :: vec
+      real(s2_dp) :: sigma(1), support_theta
+
+      ! Check object not already initialised.
+      if(proj%init) then
+        call s2_error(S2_ERROR_INIT, 's2_proj_projection_nearest_neighbour')
+        return
+      end if
+
+      ! Only projection of upper hemisphere supported at present.
+      if(proj%field /= S2_PROJ_FIELD_HEMISPHERE_UPPER) then
+         call s2_error(S2_ERROR_PROJ_FIELD_INVALID, 's2_proj_projection_nearest_neighbour', &
+              comment_add='Only upper hemisphere supported at present.')
+      end if
+
+      ! Get local parameters.
+      N = proj%N
+      if(present(nside)) then
+         nside_use = nside
+      else
+         nside_use = s2_sky_get_nside(sky)
+      end if
+      pix_scheme = s2_sky_get_pix_scheme(sky)
+
+      ! Define planar grid.
+      allocate(grid(0:N-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_projection_nearest_neighbour')
+      end if
+      grid = (/  ((k+0.5)*proj%dx - proj%image_size/2.0, k = 0,N-1) /) 
+
+      ! Ensure sky map is defined and compute otherwise.
+      call s2_sky_compute_map(sky, nside_use)
+
+      ! Project on planar grid.
+      do i = 0,N-1
+         x(1) = grid(i)
+         do j =0,N-1             
+            x(2) = grid(j)
+            if(x(1)**2 + x(2)**2 > 1.0) then
+               x(3) = 0 
+                 ! Account for points outside disk with unit radius 
+                 ! (will ensure map to theta=pi/2, which is outside fov).
+            else
+               x(3) = sqrt(1.0 - x(1)**2 - x(2)**2)
+            end if
+
+            ! Compute spherical corrdinates of planar grid point.
+            vec = s2_vect_init(x)
+            call s2_vect_convert(vec, S2_VECT_TYPE_S2)
+            theta = s2_vect_get_theta(vec)
+            phi = s2_vect_get_phi(vec)
+            call s2_vect_free(vec)
+
+           if(theta <= proj%theta_fov/2.0) then
+
+              sigma(1) = 0.02
+              support_theta = 4 * sigma(1)
+              proj%image(i,j) = s2_sky_convpt_space(sky, support_theta, kernel, &
+                   theta, phi, sigma)
+
+           else
+              proj%image(i,j) = 0.0
+           end if
+
+         end do
+      end do
+
+      ! Free memory.
+      deallocate(grid)
+      
+    end subroutine s2_proj_projection_kernel
+
+
+    !--------------------------------------------------------------------------
     ! s2_proj_projection_harmonic_interp
     !
     !! Project sky to planar image using harmonic interpolation method.
@@ -658,7 +778,8 @@ module s2_proj_mod
             x(2) = grid(j)
             if(x(1)**2 + x(2)**2 > 1.0) then
                x(3) = 0 
-                 ! Account for points outside disk with unit radius (will ensure map to theta=pi/2, which is outside fov.).
+                 ! Account for points outside disk with unit radius 
+                 ! (will ensure map to theta=pi/2, which is outside fov).
             else
                x(3) = sqrt(1.0 - x(1)**2 - x(2)**2)
             end if
@@ -794,3 +915,19 @@ module s2_proj_mod
 
 
 end module s2_proj_mod
+
+
+
+function kernel(theta, param) result(val)
+
+  use s2_types_mod
+  real(s2_dp), intent(in) :: theta
+  real(s2_dp), intent(in), optional :: param(:)
+  real(s2_dp) :: val
+
+  real(s2_dp) :: sigma
+
+  sigma = param(1)
+  val = exp(-theta**2 / (2.0*sigma**2))
+
+end function kernel
