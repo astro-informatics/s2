@@ -14,6 +14,8 @@
 !!     some projection methods if not provided in sky object).
 !!   - [lmax lmax]: Harmonic band-limit to use when projecting image
 !!     (required by some projection methods if not provided in sky object).
+!!   - [-op_file filename_op (optional)]: File to save matrix representation 
+!!     of projection operator.
 !
 !! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
 !
@@ -37,6 +39,7 @@ program s2_sky2proj
 
   character(len=*), parameter ::  METHOD_NEAREST = 'nearest'
   character(len=*), parameter ::  METHOD_HARMONIC = 'harmonic'
+  character(len=*), parameter ::  METHOD_KERNEL = 'kernel'
   integer :: method = S2_PROJ_METHOD_NEAREST_NEIGHBOUR
 
   character(len=S2_STRING_LEN) :: filename_in, filename_out
@@ -52,6 +55,7 @@ program s2_sky2proj
   character(len=S2_STRING_LEN) :: filename_op
   integer :: nsphere, nop, j, fileid
   integer, allocatable :: op(:,:)
+  real(s2_dp), allocatable :: op_dp(:,:)
   real(s2_sp), allocatable :: xmap(:)
 
   ! Parse input parameters.
@@ -82,6 +86,9 @@ program s2_sky2proj
     case (METHOD_HARMONIC)
        method = S2_PROJ_METHOD_HARMONIC_INTERP
 
+    case (METHOD_KERNEL)
+       method = S2_PROJ_METHOD_KERNEL
+
     case default
        call s2_error(S2_ERROR_PROJ_METHOD_INVALID, 's2_sky2proj', &
          comment_add='Invalid projection type option')
@@ -107,43 +114,82 @@ program s2_sky2proj
   ! Write the projection operator to file.
   if (save_op) then
 
-     ! Output projection operator file only defined for nearest 
-     ! neighbour projection method at present.
-     if( method /= S2_PROJ_METHOD_NEAREST_NEIGHBOUR) then
-        call s2_error(S2_ERROR_PROJ_METHOD_INVALID, 's2_sky2proj', &
-             comment_add='Output projection operator only defined for nearst neighbour projection.')
-     end if
+      select case(method)
 
-     if (nside == 0) then
-        call s2_proj_operator_nearest_neighbour(proj, nop=nop, op=op, nsphere=nsphere, xmap=xmap)
-     else
-        call s2_proj_operator_nearest_neighbour(proj, nside, nop, op, nsphere, xmap)
-     end if
+         case(S2_PROJ_METHOD_NEAREST_NEIGHBOUR)
 
-     ! Open file.
-     fileid = 43
-     open(unit=fileid, file=trim(filename_op), status='new', action='write', &
-          form='formatted')
+            if (nside == 0) then
+               call s2_proj_operator_nearest_neighbour(proj, nop=nop, op=op, &
+                    nsphere=nsphere, xmap=xmap)
+            else
+               call s2_proj_operator_nearest_neighbour(proj, nside, nop, op, nsphere, xmap)
+            end if
 
-     write(fileid,'(a)') 'op = [...'
-     do j = 0,nop-1
-        write(fileid,'(i20,a,i20,a)') op(j,0), ', ', op(j,1), '; ...'
-     end do
-     write(fileid,'(a)') ']'
+            ! Open file.
+            fileid = 43
+            open(unit=fileid, file=trim(filename_op), status='new', action='write', &
+                 form='formatted')
 
-     write(fileid,'(a)') ''
+            write(fileid,'(a)') 'op = [...'
+            do j = 0,nop-1
+               write(fileid,'(i20,a,i20,a)') op(j,0), ', ', op(j,1), '; ...'
+            end do
+            write(fileid,'(a)') ']'
 
-     write(fileid,'(a)') 'xmap = [...'
-     do j = 0,nsphere-1
-        write(fileid,'(e20.10,a)') xmap(j), '; ...'
-     end do
-     write(fileid,'(a)') ']'
+            write(fileid,'(a)') ''
 
-     ! Close file.
-     close(fileid)
+            write(fileid,'(a)') 'xmap = [...'
+            do j = 0,nsphere-1
+               write(fileid,'(e20.10,a)') xmap(j), '; ...'
+            end do
+            write(fileid,'(a)') ']'
 
-     ! Free memory.
-     deallocate(xmap, op)
+            ! Close file.
+            close(fileid)
+
+            ! Free memory.
+            deallocate(xmap, op)
+
+         case(S2_PROJ_METHOD_KERNEL)
+
+            if (nside == 0) then
+               call s2_proj_operator_kernel(proj, nop=nop, op=op_dp, &
+                    nsphere=nsphere, xmap=xmap)
+            else
+               call s2_proj_operator_kernel(proj, nside, nop, op_dp, nsphere, xmap)
+            end if
+
+            ! Open file.
+            fileid = 43
+            open(unit=fileid, file=trim(filename_op), status='new', action='write', &
+                 form='formatted')
+
+            write(fileid,'(a)') 'op = [...'
+            do j = 0,nop-1
+               write(fileid,'(i20,a,i20,a,e20.10,a)') nint(op_dp(j,0)), ', ', &
+                    nint(op_dp(j,1)), ', ', op_dp(j,2), '; ...'
+            end do
+            write(fileid,'(a)') ']'
+
+            write(fileid,'(a)') ''
+
+            write(fileid,'(a)') 'xmap = [...'
+            do j = 0,nsphere-1
+               write(fileid,'(e20.10,a)') xmap(j), '; ...'
+            end do
+            write(fileid,'(a)') ']'
+
+            ! Close file.
+            close(fileid)
+
+            ! Free memory.
+            deallocate(xmap, op_dp)
+
+         case default
+            call s2_error(S2_ERROR_PROJ_METHOD_INVALID, 's2_sky2proj', &
+                 comment_add='Output projection operator only defined for nearst neighbour and kernel projection.')
+
+      end select
 
   end if
 

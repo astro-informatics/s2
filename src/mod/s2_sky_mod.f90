@@ -37,7 +37,7 @@ module s2_sky_mod
     s2_sky_compute_alm, s2_sky_compute_alm_iter, &
     s2_sky_compute_map, s2_sky_irregular_invsht, &
     s2_sky_map_convert, &
-    s2_sky_conv, s2_sky_conv_space, s2_sky_convpt_space, &
+    s2_sky_conv, s2_sky_conv_space, s2_sky_convpt_space, s2_sky_convpt_space_weights, &
     s2_sky_offset, s2_sky_scale,  &
     s2_sky_add, s2_sky_add_alm, s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
     s2_sky_error_twonorm, s2_sky_rms, & ! s2_sky_error_onenorm, s2_sky_error_pnorm, &
@@ -1757,7 +1757,6 @@ module s2_sky_mod
       real(s2_sp) :: x0_sp(1:3)
       real(s2_dp) :: x0_dp(1:3)
       real(s2_dp) :: theta, phi, dot, ang, normalisation
-      real(s2_dp), parameter :: TOL = 1d-10
       integer :: nest, ndisc, ipix, idisc, fail=0
       integer, allocatable :: disc_ipix(:)
 
@@ -1831,6 +1830,143 @@ module s2_sky_mod
       call s2_vect_free(vec0)
 
     end function s2_sky_convpt_space
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_convpt_space_weights
+    !
+    !! Compute the weights and indices to perform convolution in real
+    !! space at a given position.  i.e. compute one row of the matrix
+    !! convolution operator.
+    !!
+    !! Notes:
+    !!   - Support of the kernel is the full support, i.e. kernel has support
+    !!     with theta in [-support_theta/2, support_theta/2].
+    !!   - Memory allocated herein; must be freed by calling routine.
+    !!
+    !! Variables:
+    !!   - nweights: Number of weights 
+    !!   - indices(0:nweights-1): Indices of points on sphere required in 
+    !!     computation of convolution.
+    !!   - weights(0:nweights-1): Weight for each pixel.
+    !!   - nside: Resolution of Healpix sphere considered in computing pixel 
+    !!     positions.
+    !!   - pix_schmeme: Pixelisation scheme of pixel indices.
+    !!   - support_theta: Full support of the convolution kernel (see note).
+    !!   - kernel: Convolution kernel.
+    !!   - theta0: Theta position of point to compute convolution at.
+    !!   - phi0: Phi position of point to compute convolution at.
+    !!   - param: Optional parameters to pass to the kernel function.
+    !!   - inclusive: If set to 1, all the pixels overlapping (even
+    !!     partially) with the disc are listed, otherwise only those
+    !!     whose center lies within the disc are listed.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   July 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_convpt_space_weights(nweights, indices, weights, &
+         nside, pix_scheme, support_theta, kernel, &
+         theta0, phi0, param, inclusive)
+
+      use pix_tools, only: query_disc, pix2ang_ring, pix2ang_nest, nside2npix
+
+      integer, intent(out) :: nweights
+      integer, intent(out), allocatable :: indices(:)
+      real(s2_dp), intent(out), allocatable :: weights(:)
+      integer, intent(in) :: nside
+      integer, intent(in) :: pix_scheme
+      real(s2_dp), intent(in) :: support_theta
+      real(s2_dp), intent(in) :: theta0
+      real(s2_dp), intent(in) :: phi0
+      real(s2_dp), intent(in), optional :: param(:)
+      integer, intent(in), optional :: inclusive
+      real(s2_dp) :: val
+      interface 
+        function kernel(theta, param) result(val)
+          use s2_types_mod
+          real(s2_dp), intent(in) :: theta
+          real(s2_dp), intent(in), optional :: param(:)
+          real(s2_dp) :: val
+        end function kernel
+      end interface
+
+      type(s2_vect) :: vec0, vec
+      real(s2_sp) :: x0_sp(1:3)
+      real(s2_dp) :: x0_dp(1:3)
+      real(s2_dp) :: theta, phi, dot, ang, normalisation
+      integer :: nest, ndisc, ipix, idisc, fail=0, npix
+      integer, allocatable :: disc_ipix(:)
+
+      ! Compute cartesial coordinates of (theta,phi).
+      vec0 = s2_vect_init(1.0, real(theta0,s2_sp), real(phi0,s2_sp))
+      call s2_vect_convert(vec0, S2_VECT_TYPE_CART)
+      x0_sp = s2_vect_get_x(vec0)
+      x0_dp(1:3) = x0_sp(1:3)
+
+      ! Query disc.
+      if(pix_scheme == S2_SKY_RING) then
+         nest = 0
+      else if(pix_scheme == S2_SKY_NEST) then
+         nest = 1
+      else
+         call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_convpt_space_weights')
+      end if
+      npix = nside2npix(nside) 
+      allocate(disc_ipix(0:npix-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_convpt_space_weights')
+      end if      
+      call query_disc(nside, x0_dp, support_theta/2.0, disc_ipix, ndisc, nest, inclusive)
+
+      ! Allocate space.
+      nweights = ndisc
+      allocate(indices(0:nweights-1), stat=fail)
+      allocate(weights(0:nweights-1), stat=fail)
+      if(fail /= 0) then
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_convpt_space_weights')
+      end if
+      
+      ! Compute convolution weights.
+      indices(0:nweights-1) = disc_ipix(0:nweights-1)
+      normalisation = 0.0
+      do idisc = 0, ndisc-1
+
+         ! Get index of pixel in disk.
+         ipix = disc_ipix(idisc)
+
+         ! Get theta and phi angles corresponding to pixel.
+         if(pix_scheme == S2_SKY_RING) then
+            call pix2ang_ring(nside, ipix, theta, phi)
+         else if(pix_scheme == S2_SKY_NEST) then
+            call pix2ang_nest(nside, ipix, theta, phi)
+         else
+            call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_convpt_space_weights')
+         end if
+
+         ! Compute angle between this point and x0.
+         vec = s2_vect_init(1.0, real(theta,s2_sp), real(phi,s2_sp))
+         dot = s2_vect_dot(vec0, vec)         
+         if (dot > 1d0) dot = 1d0  ! Remove numerical noise that could cause acos to fail.
+         ang = acos(dot)
+         call s2_vect_free(vec)
+
+         ! Compute contribution to convolution.
+         weights(idisc) = kernel(ang, param)
+         normalisation = normalisation + kernel(ang, param)
+         
+      end do
+
+      ! Normalise.
+      weights(0:nweights-1) = weights(0:nweights-1) / normalisation
+
+      ! Free memory.
+      deallocate(disc_ipix)
+      call s2_vect_free(vec0)
+
+    end subroutine s2_sky_convpt_space_weights
 
 
     !--------------------------------------------------------------------------
