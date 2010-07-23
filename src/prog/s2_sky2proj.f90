@@ -52,7 +52,8 @@ program s2_sky2proj
   type(s2_proj) :: proj
 
   logical :: save_op = .false.
-  character(len=S2_STRING_LEN) :: filename_op
+  logical :: save_xmap = .false.
+  character(len=S2_STRING_LEN) :: filename_op, filename_xmap
   integer :: nsphere, nop, j, fileid
   integer, allocatable :: op(:,:)
   real(s2_dp), allocatable :: op_dp(:,:)
@@ -112,7 +113,7 @@ program s2_sky2proj
   call s2_proj_write_image_file(proj, trim(filename_out))
 
   ! Write the projection operator to file.
-  if (save_op) then
+  if (save_op .or. save_xmap) then
 
       select case(method)
 
@@ -125,27 +126,42 @@ program s2_sky2proj
                call s2_proj_operator_nearest_neighbour(proj, nside, nop, op, nsphere, xmap)
             end if
 
-            ! Open file.
-            fileid = 43
-            open(unit=fileid, file=trim(filename_op), status='new', action='write', &
-                 form='formatted')
+            if(save_op) then
 
-            write(fileid,'(a)') 'op = [...'
-            do j = 0,nop-1
-               write(fileid,'(i20,a,i20,a)') op(j,0), ', ', op(j,1), '; ...'
-            end do
-            write(fileid,'(a)') ']'
+               fileid = 43
+               open(unit=fileid, file=trim(filename_op), status='new', action='write', &
+                    form='formatted')
 
-            write(fileid,'(a)') ''
+               !write(fileid,'(a,a)') 'function  [op, xmap] = ', filename_op(1:len(trim(filename_op))-2)
+               !write(fileid,'(a)') ''
 
-            write(fileid,'(a)') 'xmap = [...'
-            do j = 0,nsphere-1
-               write(fileid,'(e20.10,a)') xmap(j), '; ...'
-            end do
-            write(fileid,'(a)') ']'
+               !write(fileid,'(a)') 'op = [...'
+               do j = 0,nop-1
+                  write(fileid,'(2i20)') op(j,0), op(j,1)
+               end do
+               !write(fileid,'(a)') '];'
 
-            ! Close file.
-            close(fileid)
+               close(fileid)
+
+            end if
+
+            if(save_xmap) then
+
+               fileid = 44
+               open(unit=fileid, file=trim(filename_xmap), status='new', action='write', &
+                    form='formatted')
+
+               !write(fileid,'(a)') ''
+
+               !write(fileid,'(a)') 'xmap = [...'
+               do j = 0,nsphere-1
+                  write(fileid,'(e20.10)') xmap(j)
+               end do
+               !write(fileid,'(a)') '];'
+
+               close(fileid)
+
+            end if
 
             ! Free memory.
             deallocate(xmap, op)
@@ -159,28 +175,43 @@ program s2_sky2proj
                call s2_proj_operator_kernel(proj, nside, nop, op_dp, nsphere, xmap)
             end if
 
-            ! Open file.
-            fileid = 43
-            open(unit=fileid, file=trim(filename_op), status='new', action='write', &
-                 form='formatted')
+            if(save_op) then
 
-            write(fileid,'(a)') 'op = [...'
-            do j = 0,nop-1
-               write(fileid,'(i20,a,i20,a,e20.10,a)') nint(op_dp(j,0)), ', ', &
-                    nint(op_dp(j,1)), ', ', op_dp(j,2), '; ...'
-            end do
-            write(fileid,'(a)') ']'
+               fileid = 43
+               open(unit=fileid, file=trim(filename_op), status='new', action='write', &
+                    form='formatted')
 
-            write(fileid,'(a)') ''
+               !write(fileid,'(a,a)') 'function  [op, xmap] = ', filename_op(1:len(trim(filename_op))-2)
+               !write(fileid,'(a)') ''
 
-            write(fileid,'(a)') 'xmap = [...'
-            do j = 0,nsphere-1
-               write(fileid,'(e20.10,a)') xmap(j), '; ...'
-            end do
-            write(fileid,'(a)') ']'
+               !write(fileid,'(a)') 'op = [...'
+               do j = 0,nop-1
+                  write(fileid,'(2i20,e20.10)') nint(op_dp(j,0)), &
+                       nint(op_dp(j,1)), op_dp(j,2)
+               end do
+               !write(fileid,'(a)') '];'
 
-            ! Close file.
-            close(fileid)
+               close(fileid)
+
+            end if
+
+            if(save_xmap) then
+
+               fileid = 44
+               open(unit=fileid, file=trim(filename_xmap), status='new', action='write', &
+                    form='formatted')
+
+               !write(fileid,'(a)') ''
+
+               !write(fileid,'(a)') 'xmap = [...'
+               do j = 0,nsphere-1
+                  write(fileid,'(e20.10)') xmap(j)
+               end do
+               !write(fileid,'(a)') '];'
+
+               close(fileid)
+
+            end if
 
             ! Free memory.
             deallocate(xmap, op_dp)
@@ -277,6 +308,10 @@ program s2_sky2proj
           case ('-op_file')
             filename_op = trim(arg)
             save_op = .true.
+
+          case ('-xmap_file')
+            filename_xmap = trim(arg)
+            save_xmap = .true.
 
           case default
             print '("unknown option ",a4," ignored")', opt            
