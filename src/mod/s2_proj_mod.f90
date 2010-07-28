@@ -443,7 +443,7 @@ if(mod(N,2) /= 0) N = N + 1
       integer, allocatable :: opx(:,:)
       real(s2_sp), allocatable :: grid(:)
 
-      ! Check object not already initialised.
+      ! Check object already initialised.
       if(.not. proj%init) then
         call s2_error(S2_ERROR_NOT_INIT, 's2_proj_operator_nearest_neighbour')
         return
@@ -742,7 +742,6 @@ if(mod(N,2) /= 0) N = N + 1
       real(s2_sp) :: x(1:3)
       type(s2_vect) :: vec
 
-
       real(s2_dp) :: sigma(1), support_theta
       integer :: nweights, iweight
       integer, allocatable :: indices(:)
@@ -752,15 +751,15 @@ if(mod(N,2) /= 0) N = N + 1
       real(s2_dp), allocatable :: opx(:,:)
       real(s2_sp), allocatable :: grid(:)
 
-      ! Check object not already initialised.
+      ! Check object already initialised.
       if(.not. proj%init) then
-        call s2_error(S2_ERROR_NOT_INIT, 's2_proj_operator_nearest_neighbour')
+        call s2_error(S2_ERROR_NOT_INIT, 's2_proj_operator_kernel')
         return
       end if
 
       ! Only projection of upper hemisphere supported at present.
       if(proj%field /= S2_PROJ_FIELD_HEMISPHERE_UPPER) then
-         call s2_error(S2_ERROR_PROJ_FIELD_INVALID, 's2_proj_operator_nearest_neighbour', &
+         call s2_error(S2_ERROR_PROJ_FIELD_INVALID, 's2_proj_operator_kernel', &
               comment_add='Only upper hemisphere supported at present.')
       end if
 
@@ -782,14 +781,14 @@ if(mod(N,2) /= 0) N = N + 1
       ! Define planar grid.
       allocate(grid(0:proj%N-1), stat=fail)
       if(fail /= 0) then
-        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_nearest_neighbour')
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_kernel')
       end if
       grid = (/  ((k+0.5)*proj%dx - proj%image_size/2.0, k = 0,proj%N-1) /) 
 
       ! Get xmap vector.
       allocate(map(0:npix-1), stat=fail)
       if(fail /= 0) then
-         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_nearest_neighbour')
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_kernel')
       end if
       call s2_sky_get_map(proj%parent, map)
 
@@ -804,14 +803,14 @@ if(mod(N,2) /= 0) N = N + 1
 
       allocate(xmap(0:nsphere-1), stat=fail)
       if(fail /= 0) then
-        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_nearest_neighbour')
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_kernel')
       end if
       xmap(0:nsphere-1) = map(0:nsphere-1)
 
       ! Allocate maximum required space for sparse representation of operator.
       allocate(opx(0:proj%N*proj%N*proj%N*proj%N-1, 0:2), stat=fail)
       if(fail /= 0) then
-        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_nearest_neighbour')
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_kernel')
       end if      
 
       ! Construct operator.
@@ -866,7 +865,7 @@ if(mod(N,2) /= 0) N = N + 1
       ! Copy required operator points.
       allocate(op(0:nop-1, 0:2), stat=fail)
       if(fail /= 0) then
-        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_nearest_neighbour')
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_kernel')
       end if   
       op(0:nop-1, 0:2) = opx(0:nop-1, 0:2)
 

@@ -32,6 +32,15 @@ program s2_sky2proj
 
   implicit none
 
+  interface 
+     function conv_kernel(theta, param) result(val)
+       use s2_types_mod
+       real(s2_dp), intent(in) :: theta
+       real(s2_dp), intent(in), optional :: param(:)
+       real(s2_dp) :: val
+     end function conv_kernel
+  end interface
+
   character(len=*), parameter ::  MAP_FILE = 'map'
   character(len=*), parameter ::  ALM_FILE = 'alm'
   character(len=*), parameter ::  SKY_FILE = 'sky'
@@ -50,10 +59,12 @@ program s2_sky2proj
   integer :: nside = 0, lmax = 0
   type(s2_sky) :: sky
   type(s2_proj) :: proj
+  real(s2_dp) :: sigma_conv = 0.02, sigma(1), support_theta
 
   logical :: save_op = .false.
+  logical :: save_convop = .false.
   logical :: save_xmap = .false.
-  character(len=S2_STRING_LEN) :: filename_op, filename_xmap
+  character(len=S2_STRING_LEN) :: filename_op, filename_convop, filename_xmap
   integer :: nsphere, nop, j, fileid
   integer, allocatable :: op(:,:)
   real(s2_dp), allocatable :: op_dp(:,:)
@@ -62,6 +73,7 @@ program s2_sky2proj
   ! Parse input parameters.
   call parse_options()
   theta_fov = theta_fov * pi / 180e0
+  sigma(1) = sigma_conv
 
   ! Set sky file type.
   select case (trim(file_type_str))
@@ -132,14 +144,9 @@ program s2_sky2proj
                open(unit=fileid, file=trim(filename_op), status='new', action='write', &
                     form='formatted')
 
-               !write(fileid,'(a,a)') 'function  [op, xmap] = ', filename_op(1:len(trim(filename_op))-2)
-               !write(fileid,'(a)') ''
-
-               !write(fileid,'(a)') 'op = [...'
                do j = 0,nop-1
                   write(fileid,'(2i20)') op(j,0), op(j,1)
                end do
-               !write(fileid,'(a)') '];'
 
                close(fileid)
 
@@ -151,13 +158,9 @@ program s2_sky2proj
                open(unit=fileid, file=trim(filename_xmap), status='new', action='write', &
                     form='formatted')
 
-               !write(fileid,'(a)') ''
-
-               !write(fileid,'(a)') 'xmap = [...'
                do j = 0,nsphere-1
                   write(fileid,'(e20.10)') xmap(j)
                end do
-               !write(fileid,'(a)') '];'
 
                close(fileid)
 
@@ -181,15 +184,10 @@ program s2_sky2proj
                open(unit=fileid, file=trim(filename_op), status='new', action='write', &
                     form='formatted')
 
-               !write(fileid,'(a,a)') 'function  [op, xmap] = ', filename_op(1:len(trim(filename_op))-2)
-               !write(fileid,'(a)') ''
-
-               !write(fileid,'(a)') 'op = [...'
                do j = 0,nop-1
                   write(fileid,'(2i20,e20.10)') nint(op_dp(j,0)), &
                        nint(op_dp(j,1)), op_dp(j,2)
                end do
-               !write(fileid,'(a)') '];'
 
                close(fileid)
 
@@ -201,13 +199,9 @@ program s2_sky2proj
                open(unit=fileid, file=trim(filename_xmap), status='new', action='write', &
                     form='formatted')
 
-               !write(fileid,'(a)') ''
-
-               !write(fileid,'(a)') 'xmap = [...'
                do j = 0,nsphere-1
                   write(fileid,'(e20.10)') xmap(j)
                end do
-               !write(fileid,'(a)') '];'
 
                close(fileid)
 
@@ -221,6 +215,27 @@ program s2_sky2proj
                  comment_add='Output projection operator only defined for nearst neighbour and kernel projection.')
 
       end select
+
+  end if
+
+  ! Write the convolution operator to file.
+  if (save_convop) then
+
+     support_theta = 4 * sigma(1)
+     call s2_sky_conv_space_fovop(sky, support_theta, real(theta_fov,s2_dp), nop, op_dp, &
+         nsphere, xmap, conv_kernel, sigma)
+
+     fileid = 43
+     open(unit=fileid, file=trim(filename_convop), status='new', action='write', &
+          form='formatted')
+     do j = 0,nop-1
+        write(fileid,'(2i20,e20.10)') nint(op_dp(j,0)), &
+             nint(op_dp(j,1)), op_dp(j,2)
+     end do
+     close(fileid)
+
+     ! Free memory.
+     deallocate(xmap, op_dp)
 
   end if
 
@@ -281,7 +296,9 @@ program s2_sky2proj
             write(*,'(a)') '                   [-nside nside (optional)]'
             write(*,'(a)') '                   [-lmax lmax (optional)]'
             write(*,'(a)') '                   [-op_file filename_op (optional)]'
-
+            write(*,'(a)') '                   [-convop_file filenameconv_op (optional)]'
+            write(*,'(a)') '                   [-sigma_conv sigma_conv (optional)]'
+            write(*,'(a)') '                   [-xmap_file filename_xmap (optional)]'
             stop
           
           case ('-inp')
@@ -309,6 +326,13 @@ program s2_sky2proj
             filename_op = trim(arg)
             save_op = .true.
 
+          case ('-convop_file')
+            filename_convop = trim(arg)
+            save_convop = .true.
+
+          case ('-sigma_conv')
+            read(arg,*) sigma_conv
+
           case ('-xmap_file')
             filename_xmap = trim(arg)
             save_xmap = .true.
@@ -326,4 +350,18 @@ end program s2_sky2proj
 
 
 
+
+function conv_kernel(theta, param) result(val)
+
+  use s2_types_mod
+  real(s2_dp), intent(in) :: theta
+  real(s2_dp), intent(in), optional :: param(:)
+  real(s2_dp) :: val
+
+  real(s2_dp) :: sigma
+
+  sigma = param(1)
+  val = exp(-theta**2 / (2.0*sigma**2))
+
+end function conv_kernel
 

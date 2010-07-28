@@ -37,7 +37,7 @@ module s2_sky_mod
     s2_sky_compute_alm, s2_sky_compute_alm_iter, &
     s2_sky_compute_map, s2_sky_irregular_invsht, &
     s2_sky_map_convert, &
-    s2_sky_conv, s2_sky_conv_space, s2_sky_convpt_space, s2_sky_convpt_space_weights, &
+    s2_sky_conv, s2_sky_conv_space, s2_sky_convpt_space, s2_sky_conv_space_fovop, s2_sky_convpt_space_weights, &
     s2_sky_offset, s2_sky_scale,  &
     s2_sky_add, s2_sky_add_alm, s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
     s2_sky_error_twonorm, s2_sky_rms, & ! s2_sky_error_onenorm, s2_sky_error_pnorm, &
@@ -1647,7 +1647,6 @@ module s2_sky_mod
       real(s2_dp), intent(in) :: support_theta
       real(s2_dp), intent(in), optional :: param(:)
       integer, intent(in), optional :: inclusive
-      real(s2_dp) :: val
       interface 
         function kernel(theta, param) result(val)
           use s2_types_mod
@@ -1830,6 +1829,152 @@ module s2_sky_mod
       call s2_vect_free(vec0)
 
     end function s2_sky_convpt_space
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_conv_space_fovop
+    !
+    !! Compute a sparse matrix representation of the spatial
+    !! convolution operator for a polar cap within a specified
+    !! field-of-view.
+    !!
+    !! Notes:
+    !!   - Support of the kernel is the full support, i.e. kernel has support
+    !!     with theta in [-support_theta/2, support_theta/2].
+    !!   - Memory allocated herein; must be freed by calling routine.
+    !!
+    !! Variables:
+    !!   - sky: Sky to extract polar cap.
+    !!   - support_theta: Full support of the convolution kernel (see note).
+    !!   - theta_fov: Size of field of view (fov), note that fov extends
+    !!     from 0 to theta_fov/2 .
+    !!   - nop: Number of non-zero enties in the convolution operator.
+    !!   - op(0:nop-1,0:2): Convolution operator (specifies indices and values 
+    !!     of entries in operator matrix).
+    !!   - nsphere: Number of pixels on the sphere within the fov.
+    !!   - xmap(0:nsphere-1): Vector of pixels values on the sphere within 
+    !!     the fov.
+    !!   - kernel: Convolution kernel.
+    !!   - param: Optional parameters to pass to the kernel function.
+    !!   - inclusive: If set to 1, all the pixels overlapping (even
+    !!     partially) with the disc are listed, otherwise only those
+    !!     whose center lies within the disc are listed.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   July 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_conv_space_fovop(sky, support_theta, theta_fov, nop, op, &
+         nsphere, xmap, kernel, param, inclusive)
+
+      use pix_tools, only: pix2ang_ring, pix2ang_nest
+
+      type(s2_sky), intent(inout) :: sky  ! Inout since may need to change pix_scheme.
+      real(s2_dp), intent(in) :: support_theta
+      real(s2_dp), intent(in) :: theta_fov
+      integer, intent(out) :: nop
+      real(s2_dp), allocatable, intent(out) :: op(:,:)
+      integer, intent(out) :: nsphere
+      real(s2_sp), allocatable, intent(out) :: xmap(:)
+      real(s2_dp), intent(in), optional :: param(:)
+      integer, intent(in), optional :: inclusive
+      interface 
+        function kernel(theta, param) result(val)
+          use s2_types_mod
+          real(s2_dp), intent(in) :: theta
+          real(s2_dp), intent(in), optional :: param(:)
+          real(s2_dp) :: val
+        end function kernel
+      end interface
+
+      integer :: ipix, iop
+      integer :: fail = 0
+      real(s2_dp) :: theta, phi
+      real(s2_dp), allocatable :: opx(:,:)
+      integer :: nweights, iweight
+      integer, allocatable :: indices(:)
+      real(s2_dp), allocatable :: weights(:)
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_conv_space_fovop')
+      end if 
+
+      ! Check map computed.
+      ! Must already be computed since lmax and mmax may otherwise be unknown.
+      if(.not. sky%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_conv_space_fovop')
+      end if
+
+      ! Ensure map in RING pixelisation scheme.
+      call s2_sky_map_convert(sky, S2_SKY_RING)
+
+      ! Count number of pixels within FOV.
+      nsphere = 0
+      do ipix = 0,sky%npix-1 
+         call pix2ang_ring(sky%nside, ipix, theta, phi)
+         if(theta > theta_fov/2.0) then
+            nsphere = ipix
+            exit            
+         end if
+      end do
+
+      ! Get xmap vector.
+      allocate(xmap(0:nsphere-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_conv_space_fovop')
+      end if
+      xmap(0:nsphere-1) = sky%map(0:nsphere-1)
+
+      ! Allocate maximum required space for sparse representation of operator.
+      allocate(opx(0:nsphere*nsphere-1, 0:2), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_conv_space_fovop')
+      end if  
+
+      ! Compute sparse matrix representation of convolution operator.
+      iop = 0
+      do ipix = 0,nsphere-1
+
+         ! Get theta and phi angles corresponding to pixel.
+         call pix2ang_ring(sky%nside, ipix, theta, phi)
+        
+         if(theta <= theta_fov/2.0) then
+
+            call s2_sky_convpt_space_weights(nweights, indices, weights, &
+                 sky%nside, S2_SKY_RING, support_theta, kernel, &
+                 theta, phi, param)
+
+            do iweight = 0,nweights-1
+               if(indices(iweight) < nsphere) then   
+                  ! Ensure only include pixels within fov.             
+                  opx(iop, 0) = ipix
+                  opx(iop, 1) = indices(iweight)
+                  opx(iop, 2) = weights(iweight)
+                  iop = iop + 1
+               end if
+            end do
+
+            deallocate(indices, weights)
+
+         end if
+
+      end do
+      nop = iop
+
+      ! Copy required operator points.
+      allocate(op(0:nop-1, 0:2), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_conv_space_fovop')
+      end if   
+      op(0:nop-1, 0:2) = opx(0:nop-1, 0:2)
+
+      ! Free memory.
+      deallocate(opx)
+
+    end subroutine s2_sky_conv_space_fovop
 
 
     !--------------------------------------------------------------------------
