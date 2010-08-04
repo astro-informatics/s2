@@ -37,6 +37,7 @@ module s2_sky_mod
     s2_sky_compute_alm, s2_sky_compute_alm_iter, &
     s2_sky_compute_map, s2_sky_irregular_invsht, &
     s2_sky_map_convert, &
+    s2_sky_der, s2_sky_der_discrete_phi, s2_sky_der_discrete_theta, s2_sky_der_discrete_grad, &
     s2_sky_conv, s2_sky_conv_space, s2_sky_convpt_space, s2_sky_conv_space_fovop, s2_sky_convpt_space_weights, &
     s2_sky_offset, s2_sky_scale,  &
     s2_sky_add, s2_sky_add_alm, s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
@@ -48,8 +49,7 @@ module s2_sky_mod
     s2_sky_admiss, &
     s2_sky_admiss_dil, s2_sky_fov, &
     s2_sky_extract_ab, s2_sky_extract_ab_fsht, &
-    s2_sky_downsample, &
-    s2_sky_upsample, &
+    s2_sky_downsample, s2_sky_upsample, &
     s2_sky_draw_dot, &
     s2_sky_write_map_file, s2_sky_write_matmap_file, &
     s2_sky_write_alm_file, s2_sky_write_matalm_file, &
@@ -126,6 +126,15 @@ module s2_sky_mod
 
   !! Square method type for setting field-of-view.
   integer, public, parameter :: S2_SKY_FOV_METHOD_SQUARE = 2
+
+  !! Theta derivative type.
+  integer, public, parameter :: S2_SKY_DER_TYPE_THETA = 1
+
+  !! Phi derivative type.
+  integer, public, parameter :: S2_SKY_DER_TYPE_PHI = 2
+
+  !! Gradient derivative type.
+  integer, public, parameter :: S2_SKY_DER_TYPE_GRAD = 3
 
 
   !---------------------------------------
@@ -1564,7 +1573,412 @@ module s2_sky_mod
 
     end subroutine s2_sky_map_convert
 
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_der
+    !
+    !! Compute continuous derivative on sphere.
+    !!
+    !! Notes:
+    !!   - Memory allocated herein for der sphere; must be freed by calling
+    !!     routine.
+    !!
+    !! Variables:
+    !!   - sky: Sky to compute derivate of.
+    !!   - der_type: Type of derivative to return 
+    !!     (S2_SKY_DER_TYPE_THETA: der = dT/dtheta; 
+    !!     S2_SKY_DER_TYPE_PHI: der = 1/sin(theta) * dT/dphi;
+    !!     S2_SKY_DER_TYPE_GRAD: der = sqrt( (dT/dtheta)**2 + (1/sin(theta) * dT/dphi)**2) )
+    !!   - lmax: Alm lmax (if harmonic coefficients not already computed).
+    !!   - mmax: Alm mmax (if harmonic coefficients not already computed).
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   August 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    function s2_sky_der(sky, der_type, lmax, mmax) result(der)
+
+      use alm_tools, only: alm2map_der
+
+      type(s2_sky), intent(inout) :: sky
+      integer, intent(in) :: der_type
+      integer, intent(in), optional :: lmax, mmax     
+      type(s2_sky) :: der
+
+      complex(s2_spc), allocatable :: alm_temp(:,:,:)
+      real(s2_sp), allocatable :: der1(:,:)
+      real(s2_sp), allocatable :: map(:)
+      integer :: fail = 0
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_der')
+      end if 
+
+      ! Compute alm if not already computed.
+      if(.not. sky%alm_status) call s2_sky_compute_alm(sky, lmax, mmax)
+
+      ! Allocate space.
+      allocate(alm_temp(1, 0:sky%lmax, 0:sky%mmax), stat=fail)
+      allocate(der1(0:sky%npix-1, 1:2), stat=fail)
+      allocate(map(0:sky%npix-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der')
+      end if
+
+      ! Compute first derivatives.
+      alm_temp(1,0:sky%lmax, 0:sky%mmax) = sky%alm(0:sky%lmax, 0:sky%mmax)
+      call alm2map_der(sky%nside, sky%lmax, sky%mmax, alm_temp, map, der1)
+      
+      ! Discard map; overwrite with desired derivative.
+      select case(der_type)
+          
+          case(S2_SKY_DER_TYPE_THETA)
+             map(0:sky%npix-1) = der1(0:sky%npix-1, 1)
+
+          case(S2_SKY_DER_TYPE_PHI)
+             map(0:sky%npix-1) = der1(0:sky%npix-1, 2)
+
+          case(S2_SKY_DER_TYPE_GRAD)
+             map(0:sky%npix-1) = &
+                  sqrt(der1(0:sky%npix-1, 1)**2 + der1(0:sky%npix-1, 2)**2)
+
+          case default
+             call s2_error(S2_ERROR_SKY_DER_TYPE_INVALID, 's2_sky_der')
+
+      end select
+     
+      ! Initialise output sky with new map.
+      der = s2_sky_init_map(map, sky%nside, S2_SKY_RING, sky%lmax, sky%mmax)
+
+      ! Free memory.
+      deallocate(alm_temp)
+      deallocate(der1)
+      deallocate(map)
+
+    end function s2_sky_der
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_der_discrete_phi
+    !
+    !! Compute discrete derivative on sphere with respect to phi.
+    !!
+    !! Notes:
+    !!   - Memory allocated herein for der sphere; must be freed by calling
+    !!     routine.
+    !!
+    !! Variables:
+    !!   - sky: Sky to compute derivate of.
+    !!   - divbysin: Logical specifying whether to divide by sin(theta) 
+    !!     ( if true, return 1/sin(theta) dT/dphi; else return dT/dphi).
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   August 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    function s2_sky_der_discrete_phi(sky, divbysin) result (der)
+
+      use pix_tools, only: pix2ang_ring, ring2nest, nest2ring, next_in_line_nest
+
+      type(s2_sky), intent(inout) :: sky
+      logical, intent(in) :: divbysin
+      type(s2_sky) :: der
+
+      real(s2_sp), allocatable :: map(:)
+      integer :: ipix, ipix_adj, ipix_nest, ipix_adj_nest, fail=0
+      real(s2_dp) :: theta, phi
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_der_discrete_phi')
+      end if 
+
+      ! Check map computed.
+      if(.not. sky%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_der_discrete_phi')
+      end if
+      
+      ! Ensure in RING pixelisation scheme.
+      call s2_sky_map_convert(sky, S2_SKY_RING)
+
+      ! Allocate space for temporary map.
+      allocate(map(0:sky%npix-1), stat=fail)
+      if(fail /= 0) then
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_phi')
+      end if
+
+      ! Compute derivative.
+      do ipix = 0,sky%npix-1
+         
+         ! Find adjacent pixel on ring.
+         call ring2nest(sky%nside, ipix, ipix_nest)
+         call next_in_line_nest(sky%nside, ipix_nest, ipix_adj_nest)
+         call nest2ring(sky%nside, ipix_adj_nest, ipix_adj)
+
+         ! Compute finite difference.
+         map(ipix) = sky%map(ipix_adj) - sky%map(ipix)
+         
+         ! Divide by sin(theta).
+         if(divbysin) then
+            call pix2ang_ring(sky%nside, ipix, theta, phi)               
+            map(ipix) = map(ipix) / sin(theta)
+         end if
+
+      end do
+
+      ! Initialise output sky with new map.
+      der = s2_sky_init_map(map, sky%nside, S2_SKY_RING)
+
+      ! Free memory.
+      deallocate(map)
+      
+    end function s2_sky_der_discrete_phi
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_der_discrete_theta
+    !
+    !! Compute discrete derivative on sphere with respect to theta (using 
+    !! convolutional or nearest interpolation).
+    !!
+    !! Notes:
+    !!   - Memory allocated herein for der sphere; must be freed by calling
+    !!     routine.
+    !!   - Support of the kernel is the full support, i.e. kernel has support
+    !!     with theta in [-support_theta/2, support_theta/2].
+    !!
+    !! Variables:
+    !!   - sky: Sky to compute derivate of.
+    !!   - support_theta: Full support of the convolution kernel (see note).
+    !!   - kernel: Convolution kernel.
+    !!   - param: Optional parameters to pass to the kernel function.
+    !!   - inclusive: If set to 1, all the pixels overlapping (even
+    !!     partially) with the disc are listed, otherwise only those
+    !!     whose center lies within the disc are listed.
+    !!   - nearest: Logical to specify nearest interpolation rather than
+    !!     convolutional.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   August 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    function s2_sky_der_discrete_theta(sky, support_theta, kernel, param, &
+         inclusive, nearest) result (der)
+
+      use pix_tools, only: pix2ang_ring, ring_num, ring2z, ang2pix_ring
+
+      type(s2_sky), intent(inout) :: sky
+      real(s2_dp), intent(in) :: support_theta
+      real(s2_dp), intent(in), optional :: param(:)
+      integer, intent(in), optional :: inclusive
+      logical, intent(in), optional :: nearest
+      type(s2_sky) :: der
+      interface 
+         function kernel(theta, param) result(val)
+           use s2_types_mod
+           real(s2_dp), intent(in) :: theta
+           real(s2_dp), intent(in), optional :: param(:)
+           real(s2_dp) :: val
+         end function kernel
+      end interface
+
+      integer :: fail = 0
+      integer :: ipix, iring
+      real(s2_dp) :: theta, theta_adj, phi
+      real(s2_dp) :: z, zadj
+      real(s2_dp) :: val_adj, val
+      real(s2_sp), allocatable :: map(:)
+      integer :: ipix_adj
+      logical :: nearest_use
+
+      if(present(nearest)) then
+         nearest_use = nearest
+      else
+         nearest_use = .false.
+      end if
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+         call s2_error(S2_ERROR_NOT_INIT, 's2_sky_der_discrete_phi')
+      end if
+
+      ! Check map computed.
+      if(.not. sky%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_der_discrete_phi')
+      end if
+
+      ! Ensure in RING pixelisation scheme.
+      call s2_sky_map_convert(sky, S2_SKY_RING)
+
+      ! Allocate space for temporary map.
+      allocate(map(0:sky%npix-1), stat=fail)
+      if(fail /= 0) then
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_phi')
+      end if
+
+      ! Compute derivative.
+      do ipix = 0,sky%npix-1
+
+         ! Compute ring number.
+         call pix2ang_ring(sky%nside, ipix, theta, phi)               
+         z = cos(theta)
+         iring = ring_num(sky%nside, z)
+
+         ! If final ring set derivative to zero.
+         ! (Note iring ranges from [1, 4*Nside-1] inclusive.)
+         if (iring == 4*sky%nside-1) then
+
+            map(ipix) = 0.0
+
+         else
+
+            ! Compute theta for next ring.
+            zadj = ring2z(sky%nside, iring+1)
+            ! Eliminate numerical noise that could otherwise cause instability.
+            if (zadj > 1.0) zadj = 1.0
+            if (zadj < -1.0) zadj = -1.0
+            theta_adj = acos(zadj)
+
+            if (nearest_use) then
+
+               ! Find nearest pixel to use in computing finite difference.
+               call ang2pix_ring(sky%nside, theta_adj, phi, ipix_adj)
+               map(ipix) = sky%map(ipix_adj) - sky%map(ipix)
+
+            else
+
+               ! Compute map value at (theta_adj, phi) by convolutional interpolation.
+               val_adj = s2_sky_convpt_space(sky, support_theta, kernel, &
+                    theta_adj, phi, param, inclusive)
+               
+               ! Compute map value at (theta, phi) by convolutional interpolation.
+               val = s2_sky_convpt_space(sky, support_theta, kernel, &
+                    theta, phi, param, inclusive)
+
+               ! Compute finite difference.
+               map(ipix) = val_adj - val
+
+! Better to smooth point at current position in addition to value interpolated 
+! (then essentially computing derivative of smoothed map).
+!               map(ipix) = val_adj - sky%map(ipix)
+
+            end if
+
+         end if
+
+      end do
+
+      ! Initialise output sky with new map.
+      der = s2_sky_init_map(map, sky%nside, S2_SKY_RING)
+
+      ! Free memory.
+      deallocate(map)
+
+    end function s2_sky_der_discrete_theta
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_der_discrete_grad
+    !
+    !! Compute discrete gradient on sphere with respect to theta (using 
+    !! convolutional or nearest interpolation for dtheta).
+    !!
+    !! Notes:
+    !!   - Memory allocated herein for der sphere; must be freed by calling
+    !!     routine.
+    !!   - Support of the kernel is the full support, i.e. kernel has support
+    !!     with theta in [-support_theta/2, support_theta/2].
+    !!
+    !! Variables:
+    !!   - sky: Sky to compute derivate of.
+    !!   - divbysin: Logical specifying whether to divide by sin(theta) 
+    !!     ( if true, return 1/sin(theta) dT/dphi; else return dT/dphi).
+    !!   - support_theta: Full support of the convolution kernel (see note).
+    !!   - kernel: Convolution kernel.
+    !!   - param: Optional parameters to pass to the kernel function.
+    !!   - inclusive: If set to 1, all the pixels overlapping (even
+    !!     partially) with the disc are listed, otherwise only those
+    !!     whose center lies within the disc are listed.
+    !!   - nearest: Logical to specify nearest interpolation rather than
+    !!     convolutional.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   August 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
     
+    function s2_sky_der_discrete_grad(sky, divbysin, support_theta, kernel, &
+         param, inclusive, nearest) result (der)
+
+      type(s2_sky), intent(inout) :: sky
+      logical, intent(in) :: divbysin
+      real(s2_dp), intent(in) :: support_theta
+      real(s2_dp), intent(in), optional :: param(:)
+      integer, intent(in), optional :: inclusive
+      logical, intent(in), optional :: nearest
+      type(s2_sky) :: der
+      interface 
+         function kernel(theta, param) result(val)
+           use s2_types_mod
+           real(s2_dp), intent(in) :: theta
+           real(s2_dp), intent(in), optional :: param(:)
+           real(s2_dp) :: val
+         end function kernel
+      end interface
+
+      real(s2_sp), allocatable :: map(:)
+      integer :: fail = 0
+      integer :: ipix
+      type(s2_sky) :: dphi
+      type(s2_sky) :: dtheta
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+         call s2_error(S2_ERROR_NOT_INIT, 's2_sky_der_discrete_grad')
+      end if
+
+      ! Check map computed.
+      if(.not. sky%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_der_discrete_grad')
+      end if
+
+      ! Ensure in RING pixelisation scheme.
+      call s2_sky_map_convert(sky, S2_SKY_RING)
+
+      ! Compute partials.
+      dphi = s2_sky_der_discrete_phi(sky, divbysin)
+      dtheta = s2_sky_der_discrete_theta(sky, support_theta, kernel, param, &
+           inclusive, nearest)
+
+      ! Allocate space for temporary map.
+      allocate(map(0:sky%npix-1), stat=fail)
+      if(fail /= 0) then
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_grad')
+      end if
+
+      ! Compute gradient.
+      map(0:sky%npix-1) = &
+           sqrt(dphi%map(0:sky%npix-1)**2 + dtheta%map(0:sky%npix-1)**2)
+
+      ! Initialise output sky with new map.
+      der = s2_sky_init_map(map, sky%nside, S2_SKY_RING)
+
+      ! Free memory.
+      deallocate(map)
+      call s2_sky_free(dphi)
+      call s2_sky_free(dtheta)
+
+    end function s2_sky_der_discrete_grad
+
+
     !--------------------------------------------------------------------------
     ! s2_sky_conv
     !
