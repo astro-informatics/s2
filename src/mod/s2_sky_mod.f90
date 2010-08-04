@@ -37,8 +37,10 @@ module s2_sky_mod
     s2_sky_compute_alm, s2_sky_compute_alm_iter, &
     s2_sky_compute_map, s2_sky_irregular_invsht, &
     s2_sky_map_convert, &
-    s2_sky_der, s2_sky_der_discrete_phi, s2_sky_der_discrete_theta, s2_sky_der_discrete_grad, &
-    s2_sky_conv, s2_sky_conv_space, s2_sky_convpt_space, s2_sky_conv_space_fovop, s2_sky_convpt_space_weights, &
+    s2_sky_der, s2_sky_der_discrete_phi, s2_sky_der_discrete_phi_fovop, &
+    s2_sky_der_discrete_theta, s2_sky_der_discrete_grad, &
+    s2_sky_conv, s2_sky_conv_space, s2_sky_convpt_space, &
+    s2_sky_conv_space_fovop, s2_sky_convpt_space_weights, &
     s2_sky_offset, s2_sky_scale,  &
     s2_sky_add, s2_sky_add_alm, s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
     s2_sky_error_twonorm, s2_sky_rms, & ! s2_sky_error_onenorm, s2_sky_error_pnorm, &
@@ -1744,6 +1746,142 @@ module s2_sky_mod
 
 
     !--------------------------------------------------------------------------
+    ! s2_sky_der_discrete_phi_fovop
+    !
+    !! Compute a sparse matrix representation of the discrete derivative on 
+    !! sphere with respect to phi.
+    !!
+    !! Notes:
+    !!   - Memory allocated herein for der sphere; must be freed by calling
+    !!     routine.
+    !!
+    !! Variables:
+    !!   - sky: Sky to extract polar cap.
+    !!   - divbysin: Logical specifying whether to divide by sin(theta) 
+    !!     ( if true, return 1/sin(theta) dT/dphi; else return dT/dphi).
+    !!   - theta_fov: Size of field of view (fov), note that fov extends
+    !!     from 0 to theta_fov/2 .
+    !!   - nop: Number of non-zero enties in the derivative operator.
+    !!   - op(0:nop-1,0:2): Discrete phi derivative operator (specifies 
+    !!     indices and values of entries in operator matrix).
+    !!   - nsphere: Number of pixels on the sphere within the fov.
+    !!   - xmap(0:nsphere-1): Vector of pixels values on the sphere within 
+    !!     the fov.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   August 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_der_discrete_phi_fovop(sky, divbysin, &
+         theta_fov, nop, op, nsphere, xmap)
+
+      use pix_tools, only: pix2ang_ring, ring2nest, nest2ring, next_in_line_nest
+
+      type(s2_sky), intent(inout) :: sky 
+      logical, intent(in) :: divbysin
+      real(s2_dp), intent(in) :: theta_fov
+      integer, intent(out) :: nop
+      real(s2_dp), allocatable, intent(out) :: op(:,:)
+      integer, intent(out) :: nsphere
+      real(s2_sp), allocatable, intent(out) :: xmap(:)
+
+      integer :: ipix, iop
+      integer :: ipix_adj, ipix_nest, ipix_adj_nest
+      integer :: fail = 0
+      real(s2_dp) :: theta, phi, scale
+      real(s2_dp), allocatable :: opx(:,:)
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_der_discrete_phi_fovop')
+      end if 
+
+      ! Check map computed.
+      if(.not. sky%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_der_discrete_phi_fovop')
+      end if
+
+      ! Ensure map in RING pixelisation scheme.
+      call s2_sky_map_convert(sky, S2_SKY_RING)
+
+      ! Count number of pixels within FOV.
+      nsphere = 0
+      do ipix = 0,sky%npix-1 
+         call pix2ang_ring(sky%nside, ipix, theta, phi)
+         if(theta > theta_fov/2.0) then
+            nsphere = ipix
+            exit            
+         end if
+      end do
+
+      ! Get xmap vector.
+      allocate(xmap(0:nsphere-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_phi_fovop')
+      end if
+      xmap(0:nsphere-1) = sky%map(0:nsphere-1)
+
+      ! Allocate maximum required space for sparse representation of operator.
+      allocate(opx(0:nsphere*nsphere-1, 0:2), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_phi_fovop')
+      end if  
+
+      ! Compute sparse matrix representation of convolution operator.
+      iop = 0
+      do ipix = 0,nsphere-1
+
+         ! Get theta and phi angles corresponding to pixel.
+         call pix2ang_ring(sky%nside, ipix, theta, phi)
+        
+         if(theta <= theta_fov/2.0) then
+
+            ! Find adjacent pixel on ring.
+            call ring2nest(sky%nside, ipix, ipix_nest)
+            call next_in_line_nest(sky%nside, ipix_nest, ipix_adj_nest)
+            call nest2ring(sky%nside, ipix_adj_nest, ipix_adj)
+            
+            ! Compute optional sin(theta) scaling.
+            if(divbysin) then
+               call pix2ang_ring(sky%nside, ipix, theta, phi)               
+               scale = 1d0 / sin(theta)
+            else
+               scale = 1d0
+            end if
+
+            ! Set entries of sparse matrix...
+
+            opx(iop, 0) = ipix
+            opx(iop, 1) = ipix_adj
+            opx(iop, 2) = scale
+            iop = iop + 1
+
+            opx(iop, 0) = ipix
+            opx(iop, 1) = ipix
+            opx(iop, 2) = - scale
+            iop = iop + 1
+
+         end if
+
+      end do
+      nop = iop
+
+      ! Copy required operator points.
+      allocate(op(0:nop-1, 0:2), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_phi_fovop')
+      end if   
+      op(0:nop-1, 0:2) = opx(0:nop-1, 0:2)
+
+      ! Free memory.
+      deallocate(opx)
+
+    end subroutine s2_sky_der_discrete_phi_fovop
+
+
+    !--------------------------------------------------------------------------
     ! s2_sky_der_discrete_theta
     !
     !! Compute discrete derivative on sphere with respect to theta (using 
@@ -1809,12 +1947,12 @@ module s2_sky_mod
 
       ! Check object initialised.
       if(.not. sky%init) then
-         call s2_error(S2_ERROR_NOT_INIT, 's2_sky_der_discrete_phi')
+         call s2_error(S2_ERROR_NOT_INIT, 's2_sky_der_discrete_theta')
       end if
 
       ! Check map computed.
       if(.not. sky%map_status) then
-         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_der_discrete_phi')
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_der_discrete_theta')
       end if
 
       ! Ensure in RING pixelisation scheme.
@@ -1823,7 +1961,7 @@ module s2_sky_mod
       ! Allocate space for temporary map.
       allocate(map(0:sky%npix-1), stat=fail)
       if(fail /= 0) then
-         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_phi')
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_theta')
       end if
 
       ! Compute derivative.
@@ -1867,10 +2005,6 @@ module s2_sky_mod
 
                ! Compute finite difference.
                map(ipix) = val_adj - val
-
-! Better to smooth point at current position in addition to value interpolated 
-! (then essentially computing derivative of smoothed map).
-!               map(ipix) = val_adj - sky%map(ipix)
 
             end if
 

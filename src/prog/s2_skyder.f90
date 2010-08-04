@@ -63,9 +63,17 @@ program s2_skyder
   logical :: apply_sin = .false.
   real(s2_dp) :: sigma(1), support_theta
 
+  logical :: save_op = .false.
+  real(s2_dp) :: theta_fov
+  character(len=S2_STRING_LEN) :: filename_op
+  integer :: nsphere, nop, j, fileid
+  real(s2_dp), allocatable :: op(:,:)
+  real(s2_sp), allocatable :: xmap(:)
+
   ! Parse input parameters.
   sigma(1) = 0.02
   call parse_options()
+  theta_fov = theta_fov * pi / 180e0
 
   ! Set sky file type.
   select case (trim(file_type_str))
@@ -138,6 +146,40 @@ program s2_skyder
   ! Save output file.
   call s2_sky_write_file(der, filename_out, S2_SKY_FILE_TYPE_MAP)
 
+  ! Write the derivative operator to file.
+  if (save_op) then
+
+     ! Compute operator.
+     call s2_sky_der_discrete_phi_fovop(sky, apply_sin, theta_fov, nop, op, &
+         nsphere, xmap)
+
+     ! Write to file.
+     fileid = 51
+     open(unit=fileid, file=trim(filename_op), status='new', action='write', &
+          form='formatted')
+     do j = 0,nop-1
+        write(fileid,'(2i20,e20.10)') nint(op(j,0)), &
+             nint(op(j,1)), op(j,2)
+     end do
+     close(fileid)
+
+
+fileid = 44
+open(unit=fileid, file='xmap.dat', status='new', action='write', &
+     form='formatted')
+do j = 0,nsphere-1
+   write(fileid,'(e20.10)') xmap(j)
+end do
+close(fileid)
+
+
+
+     ! Free memory.
+     deallocate(xmap)
+     deallocate(op)
+
+  end if
+
   ! Free memory.
   call s2_sky_free(sky)
   call s2_sky_free(der)
@@ -195,6 +237,8 @@ program s2_skyder
             write(*,'(a)') '                 [-lmax lmax]'
             write(*,'(a)') '                 [-mmax mmax]'
             write(*,'(a)') '                 [-sigma sigma]'
+            write(*,'(a)') '                 [-op_file filename_op]'
+            write(*,'(a)') '                 [-theta_fov theta_fov (in degrees)]'
             stop
           
           case ('-inp')
@@ -223,6 +267,13 @@ program s2_skyder
 
           case ('-sigma')
             read(arg,*) sigma(1)
+
+          case ('-op_file')
+            filename_op = trim(arg)
+            save_op = .true.
+
+          case ('-theta_fov')
+            read(arg,*) theta_fov
 
           case default
             print '("unknown option ",a4," ignored")', opt            
