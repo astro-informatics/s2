@@ -19,6 +19,9 @@
 !!     derivatives.
 !!   - [-sigma sigma]: Sigma of the Gaussian kernel (only a Gaussian kernel 
 !!     is supported at present).
+!!   - [-op_file filename_op]: Filename of operator to save (optional).
+!!   - [-theta_fov theta_fov (in degrees)]: Field-of-view operator defined 
+!!     on.
 !
 !! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
 !
@@ -150,8 +153,23 @@ program s2_skyder
   if (save_op) then
 
      ! Compute operator.
-     call s2_sky_der_discrete_phi_fovop(sky, apply_sin, theta_fov, nop, op, &
-         nsphere, xmap)
+     select case(der_type)
+          
+         case(S2_SKY_DER_TYPE_THETA)            
+            support_theta = 4.0 * sigma(1)
+            call s2_sky_der_discrete_theta_fovop(sky, &
+                 support_theta, kernel, sigma, nearest=.false., &
+                 theta_fov=theta_fov, nop=nop, op=op, nsphere=nsphere, xmap=xmap)
+
+          case(S2_SKY_DER_TYPE_PHI)
+             call s2_sky_der_discrete_phi_fovop(sky, apply_sin, theta_fov, nop, op, &
+                  nsphere, xmap)
+
+          case default
+             call s2_error(S2_ERROR_SKY_DER_TYPE_INVALID, 's2_skyder', &
+                  comment_add='Gradient operator not supported at present.')
+
+      end select
 
      ! Write to file.
      fileid = 51
@@ -162,17 +180,6 @@ program s2_skyder
              nint(op(j,1)), op(j,2)
      end do
      close(fileid)
-
-
-fileid = 44
-open(unit=fileid, file='xmap.dat', status='new', action='write', &
-     form='formatted')
-do j = 0,nsphere-1
-   write(fileid,'(e20.10)') xmap(j)
-end do
-close(fileid)
-
-
 
      ! Free memory.
      deallocate(xmap)

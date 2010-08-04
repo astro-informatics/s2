@@ -38,7 +38,8 @@ module s2_sky_mod
     s2_sky_compute_map, s2_sky_irregular_invsht, &
     s2_sky_map_convert, &
     s2_sky_der, s2_sky_der_discrete_phi, s2_sky_der_discrete_phi_fovop, &
-    s2_sky_der_discrete_theta, s2_sky_der_discrete_grad, &
+    s2_sky_der_discrete_theta, s2_sky_der_discrete_theta_fovop, &
+    s2_sky_der_discrete_grad, &
     s2_sky_conv, s2_sky_conv_space, s2_sky_convpt_space, &
     s2_sky_conv_space_fovop, s2_sky_convpt_space_weights, &
     s2_sky_offset, s2_sky_scale,  &
@@ -1748,8 +1749,8 @@ module s2_sky_mod
     !--------------------------------------------------------------------------
     ! s2_sky_der_discrete_phi_fovop
     !
-    !! Compute a sparse matrix representation of the discrete derivative on 
-    !! sphere with respect to phi.
+    !! Compute a sparse matrix representation of the discrete derivative 
+    !! operator on sphere with respect to phi.
     !!
     !! Notes:
     !!   - Memory allocated herein for der sphere; must be freed by calling
@@ -2019,6 +2020,231 @@ module s2_sky_mod
       deallocate(map)
 
     end function s2_sky_der_discrete_theta
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_der_discrete_theta_fovop
+    !
+    !! Compute a sparse matrix representation of the discrete derivative
+    !! operator on the sphere with respect to theta (using 
+    !! convolutional or nearest interpolation).
+    !!
+    !! Notes:
+    !!   - Memory allocated herein for der sphere; must be freed by calling
+    !!     routine.
+    !!   - Support of the kernel is the full support, i.e. kernel has support
+    !!     with theta in [-support_theta/2, support_theta/2].
+    !!
+    !! Variables:
+    !!   - sky: Sky to compute derivate of.
+    !!   - support_theta: Full support of the convolution kernel (see note).
+    !!   - kernel: Convolution kernel.
+    !!   - param: Optional parameters to pass to the kernel function.
+    !!   - inclusive: If set to 1, all the pixels overlapping (even
+    !!     partially) with the disc are listed, otherwise only those
+    !!     whose center lies within the disc are listed.
+    !!   - nearest: Logical to specify nearest interpolation rather than
+    !!     convolutional.
+    !!   - theta_fov: Size of field of view (fov), note that fov extends
+    !!     from 0 to theta_fov/2 .
+    !!   - nop: Number of non-zero enties in the derivative operator.
+    !!   - op(0:nop-1,0:2): Discrete theta derivative operator (specifies 
+    !!     indices and values of entries in operator matrix).
+    !!   - nsphere: Number of pixels on the sphere within the fov.
+    !!   - xmap(0:nsphere-1): Vector of pixels values on the sphere within 
+    !!     the fov.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   August 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_der_discrete_theta_fovop(sky, &
+         support_theta, kernel, param, inclusive, nearest, &
+         theta_fov, nop, op, nsphere, xmap)
+
+      use pix_tools, only: pix2ang_ring, ring_num, ring2z, ang2pix_ring
+
+      type(s2_sky), intent(inout) :: sky 
+      real(s2_dp), intent(in) :: support_theta
+      real(s2_dp), intent(in), optional :: param(:)
+      integer, intent(in), optional :: inclusive
+      logical, intent(in), optional :: nearest
+      real(s2_dp), intent(in) :: theta_fov
+      integer, intent(out) :: nop
+      real(s2_dp), allocatable, intent(out) :: op(:,:)
+      integer, intent(out) :: nsphere
+      real(s2_sp), allocatable, intent(out) :: xmap(:)
+      interface 
+         function kernel(theta, param) result(val)
+           use s2_types_mod
+           real(s2_dp), intent(in) :: theta
+           real(s2_dp), intent(in), optional :: param(:)
+           real(s2_dp) :: val
+         end function kernel
+      end interface
+
+      integer :: ipix, ipix_adj, iring, iop, iw, iwa
+      integer :: fail = 0
+      real(s2_dp) :: theta, phi, theta_adj
+      real(s2_dp) :: icurr, wcurr
+      real(s2_dp) :: z, zadj
+      real(s2_dp), allocatable :: opx(:,:)
+      integer :: nweights, nweights_adj
+      integer, allocatable :: indices(:), indices_adj(:)
+      real(s2_dp), allocatable :: weights(:), weights_adj(:)
+      logical :: nearest_use
+
+      if(present(nearest)) then
+         nearest_use = nearest
+      else
+         nearest_use = .false.
+      end if
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_der_discrete_theta_fovop')
+      end if 
+
+      ! Check map computed.
+      if(.not. sky%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_der_discrete_theta_fovop')
+      end if
+
+      ! Ensure map in RING pixelisation scheme.
+      call s2_sky_map_convert(sky, S2_SKY_RING)
+
+      ! Count number of pixels within FOV.
+      nsphere = 0
+      do ipix = 0,sky%npix-1 
+         call pix2ang_ring(sky%nside, ipix, theta, phi)
+         if(theta > theta_fov/2.0) then
+            nsphere = ipix
+            exit            
+         end if
+      end do
+
+      ! Get xmap vector.
+      allocate(xmap(0:nsphere-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_theta_fovop')
+      end if
+      xmap(0:nsphere-1) = sky%map(0:nsphere-1)
+
+      ! Allocate maximum required space for sparse representation of operator.
+      allocate(opx(0:nsphere*nsphere-1, 0:2), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_theta_fovop')
+      end if  
+
+      ! Compute sparse matrix representation of convolution operator.
+      iop = 0
+      do ipix = 0,nsphere-1
+
+         ! Get theta and phi angles corresponding to pixel.
+         call pix2ang_ring(sky%nside, ipix, theta, phi)
+        
+         if(theta <= theta_fov/2.0) then
+
+            ! Compute ring number.
+            z = cos(theta)
+            iring = ring_num(sky%nside, z)
+
+            ! If final ring set derivative to zero, i.e. all zero 
+            ! row of matrix.
+            ! (Note iring ranges from [1, 4*Nside-1] inclusive.)
+            if (iring /= 4*sky%nside-1) then
+
+               ! Compute theta for next ring.
+               zadj = ring2z(sky%nside, iring+1)
+               ! Eliminate numerical noise that could otherwise cause instability.
+               if (zadj > 1.0) zadj = 1.0
+               if (zadj < -1.0) zadj = -1.0
+               theta_adj = acos(zadj)
+
+               if (nearest_use) then
+
+                  ! Find nearest pixel to use in computing finite difference.
+                  call ang2pix_ring(sky%nside, theta_adj, phi, ipix_adj)
+
+                  opx(iop, 0) = ipix
+                  opx(iop, 1) = ipix_adj
+                  opx(iop, 2) = 1d0
+                  iop = iop + 1
+
+                  opx(iop, 0) = ipix
+                  opx(iop, 1) = ipix
+                  opx(iop, 2) = -1d0
+                  iop = iop + 1
+
+               else
+
+                  ! Compute convolution weights.
+                  call s2_sky_convpt_space_weights(nweights_adj, indices_adj, &
+                       weights_adj, &
+                       sky%nside, S2_SKY_RING, support_theta, kernel, &
+                       theta_adj, phi, param, inclusive)
+                  call s2_sky_convpt_space_weights(nweights, indices, weights, &
+                       sky%nside, S2_SKY_RING, support_theta, kernel, &
+                       theta, phi, param, inclusive)
+
+                  ! Add entries due to adjacent point and given 
+                  ! point if it coincides.
+                  do iwa = 0,nweights_adj-1
+                     if(indices_adj(iwa) < nsphere) then   
+                        ! Ensure only include pixels within fov.             
+                        icurr = indices_adj(iwa)
+                        wcurr = weights_adj(iwa)
+                        do iw = 0,nweights-1
+                           if(indices(iw) == icurr) then
+                              wcurr = wcurr - weights(iw)
+                              indices(iw) = -1
+                           end if
+                        end do
+                        opx(iop, 0) = ipix
+                        opx(iop, 1) = icurr
+                        opx(iop, 2) = wcurr
+                        iop = iop + 1
+                     end if
+                  end do
+
+                  ! Add entries due to remaining given points.
+                  do iw = 0,nweights-1
+                     if(indices(iw) < nsphere) then   
+                        if(indices(iw) /= -1) then
+                           ! Ensure only include pixels within fov.             
+                           opx(iop, 0) = ipix
+                           opx(iop, 1) = indices(iw)
+                           opx(iop, 2) = -weights(iw)
+                           iop = iop + 1
+                        end if
+                     end if
+                  end do
+
+                  ! Free temporary memory.
+                  deallocate(indices_adj, weights_adj)
+                  deallocate(indices, weights)
+
+               end if
+            end if
+
+         end if
+
+      end do
+      nop = iop
+
+      ! Copy required operator points.
+      allocate(op(0:nop-1, 0:2), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_der_discrete_theta_fovop')
+      end if   
+      op(0:nop-1, 0:2) = opx(0:nop-1, 0:2)
+
+      ! Free memory.
+      deallocate(opx)
+
+    end subroutine s2_sky_der_discrete_theta_fovop
 
 
     !--------------------------------------------------------------------------
