@@ -1108,7 +1108,8 @@ module s2_sky_mod
       logical :: message_use
       complex(s2_spc), allocatable :: alm_temp(:,:,:)
       real(s2_dp), allocatable :: w8ring(:,:)
-      real(s2_dp) :: cos_theta_cut = -1.0d0
+      !real(s2_dp) :: cos_theta_cut = -1.0d0
+      real(s2_dp) :: zbounds(1:2)
 
       message_use = .true.
 
@@ -1166,9 +1167,11 @@ module s2_sky_mod
       end if
 
       w8ring = 1.0d0
+      zbounds(1) = -1.0d0
+      zbounds(2) = 1.0d0
 
       call map2alm(sky%nside, sky%lmax, sky%mmax, sky%map, &
-        alm_temp, cos_theta_cut, w8ring)
+        alm_temp, zbounds, w8ring)
 
       ! Copy alm data to sky (one polarisation only).
       sky%alm(0:sky%lmax, 0:sky%mmax) = alm_temp(1,0:sky%lmax,0:sky%mmax)
@@ -1182,7 +1185,7 @@ module s2_sky_mod
     end subroutine s2_sky_compute_alm
 
 
-		!--------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
     ! s2_sky_compute_alm_iter
     !
     !! Compute the alms for a sky from the map representation using iteration.
@@ -1190,8 +1193,8 @@ module s2_sky_mod
     !!
     !! Variables:
     !!   - sky: The sky to compute the alms for.
-		!!   - iter_order: Number of iterations to perform (iter_order=0 gives 
-		!!     same results as s2_sky_compute_alm
+    !!   - iter_order: Number of iterations to perform (iter_order=0 gives 
+    !!     same results as s2_sky_compute_alm
     !!   - [lmax]: If specified overwrites the lmax of the sky.
     !!   - [mmax]: If specified overwrites the mmax of the sky.
     !
