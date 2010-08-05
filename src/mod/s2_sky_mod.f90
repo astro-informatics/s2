@@ -1697,7 +1697,8 @@ module s2_sky_mod
 
       real(s2_sp), allocatable :: map(:)
       integer :: ipix, ipix_adj, ipix_nest, ipix_adj_nest, fail=0
-      real(s2_dp) :: theta, phi
+      real(s2_dp) :: theta, phi, theta_adj, phi_adj, dot, dphi
+      real(s2_dp), parameter :: TOL = 1d-8
 
       ! Check object initialised.
       if(.not. sky%init) then
@@ -1728,10 +1729,21 @@ module s2_sky_mod
 
          ! Compute finite difference.
          map(ipix) = sky%map(ipix_adj) - sky%map(ipix)
-         
+
+         ! Divide by dphi.
+         call pix2ang_ring(sky%nside, ipix, theta, phi)
+         call pix2ang_ring(sky%nside, ipix_adj, theta_adj, phi_adj)
+         dot = cos(phi)*cos(phi_adj) + sin(phi)*sin(phi_adj)
+         if (dot > 1.0) dot = 1.0
+         if (dot < -1.0) dot = -1.0 
+         dphi = acos(dot)
+         if(abs(dphi) < TOL) then
+            call s2_error(S2_ERROR_ARTH, 's2_sky_der_discrete_phi')
+         end if
+         map(ipix) = map(ipix) / dphi
+        
          ! Divide by sin(theta).
          if(divbysin) then
-            call pix2ang_ring(sky%nside, ipix, theta, phi)               
             map(ipix) = map(ipix) / sin(theta)
          end if
 
@@ -1792,7 +1804,9 @@ module s2_sky_mod
       integer :: ipix_adj, ipix_nest, ipix_adj_nest
       integer :: fail = 0
       real(s2_dp) :: theta, phi, scale
+      real(s2_dp) :: theta_adj, phi_adj, dot, dphi
       real(s2_dp), allocatable :: opx(:,:)
+      real(s2_dp), parameter :: TOL = 1d-8
 
       ! Check object initialised.
       if(.not. sky%init) then
@@ -1844,12 +1858,21 @@ module s2_sky_mod
             call next_in_line_nest(sky%nside, ipix_nest, ipix_adj_nest)
             call nest2ring(sky%nside, ipix_adj_nest, ipix_adj)
             
+            ! Compute dphi scaling.
+            call pix2ang_ring(sky%nside, ipix, theta, phi)
+            call pix2ang_ring(sky%nside, ipix_adj, theta_adj, phi_adj)
+            dot = cos(phi)*cos(phi_adj) + sin(phi)*sin(phi_adj)
+            if (dot > 1.0) dot = 1.0
+            if (dot < -1.0) dot = -1.0 
+            dphi = acos(dot)
+            if(abs(dphi) < TOL) then
+               call s2_error(S2_ERROR_ARTH, 's2_sky_der_discrete_phi')
+            end if
+            scale = 1d0 / dphi
+
             ! Compute optional sin(theta) scaling.
             if(divbysin) then
-               call pix2ang_ring(sky%nside, ipix, theta, phi)               
-               scale = 1d0 / sin(theta)
-            else
-               scale = 1d0
+               scale = scale / sin(theta)
             end if
 
             ! Set entries of sparse matrix...
@@ -1935,10 +1958,11 @@ module s2_sky_mod
       integer :: ipix, iring
       real(s2_dp) :: theta, theta_adj, phi
       real(s2_dp) :: z, zadj
-      real(s2_dp) :: val_adj, val
+      real(s2_dp) :: val_adj, val, dtheta
       real(s2_sp), allocatable :: map(:)
       integer :: ipix_adj
       logical :: nearest_use
+      real(s2_dp), parameter :: TOL = 1d-8
 
       if(present(nearest)) then
          nearest_use = nearest
@@ -1987,6 +2011,10 @@ module s2_sky_mod
             if (zadj > 1.0) zadj = 1.0
             if (zadj < -1.0) zadj = -1.0
             theta_adj = acos(zadj)
+            dtheta = theta_adj - theta
+            if(abs(dtheta) < TOL) then
+               call s2_error(S2_ERROR_ARTH, 's2_sky_der_discrete_theta')
+            end if
 
             if (nearest_use) then
 
@@ -2005,7 +2033,7 @@ module s2_sky_mod
                     theta, phi, param, inclusive)
 
                ! Compute finite difference.
-               map(ipix) = val_adj - val
+               map(ipix) = (val_adj - val) / dtheta
 
             end if
 
@@ -2087,7 +2115,7 @@ module s2_sky_mod
 
       integer :: ipix, ipix_adj, iring, iop, iw, iwa
       integer :: fail = 0
-      real(s2_dp) :: theta, phi, theta_adj
+      real(s2_dp) :: theta, phi, theta_adj, dtheta
       real(s2_dp) :: icurr, wcurr
       real(s2_dp) :: z, zadj
       real(s2_dp), allocatable :: opx(:,:)
@@ -2095,6 +2123,7 @@ module s2_sky_mod
       integer, allocatable :: indices(:), indices_adj(:)
       real(s2_dp), allocatable :: weights(:), weights_adj(:)
       logical :: nearest_use
+      real(s2_dp), parameter :: TOL = 1d-8
 
       if(present(nearest)) then
          nearest_use = nearest
@@ -2162,6 +2191,10 @@ module s2_sky_mod
                if (zadj > 1.0) zadj = 1.0
                if (zadj < -1.0) zadj = -1.0
                theta_adj = acos(zadj)
+               dtheta = theta_adj - theta
+               if(abs(dtheta) < TOL) then
+                  call s2_error(S2_ERROR_ARTH, 's2_sky_der_discrete_theta_fovop')
+               end if
 
                if (nearest_use) then
 
@@ -2171,12 +2204,12 @@ module s2_sky_mod
                   if(theta_adj <= theta_fov/2.0) then
                      opx(iop, 0) = ipix
                      opx(iop, 1) = ipix_adj
-                     opx(iop, 2) = 1d0
+                     opx(iop, 2) = 1d0 / dtheta
                      iop = iop + 1
 
                      opx(iop, 0) = ipix
                      opx(iop, 1) = ipix
-                     opx(iop, 2) = -1d0
+                     opx(iop, 2) = -1d0 / dtheta
                      iop = iop + 1
                   end if
                else
@@ -2205,7 +2238,7 @@ module s2_sky_mod
                         end do
                         opx(iop, 0) = ipix
                         opx(iop, 1) = icurr
-                        opx(iop, 2) = wcurr
+                        opx(iop, 2) = wcurr / dtheta
                         iop = iop + 1
                      end if
                   end do
@@ -2217,7 +2250,7 @@ module s2_sky_mod
                            ! Ensure only include pixels within fov.             
                            opx(iop, 0) = ipix
                            opx(iop, 1) = indices(iw)
-                           opx(iop, 2) = -weights(iw)
+                           opx(iop, 2) = -weights(iw) / dtheta
                            iop = iop + 1
                         end if
                      end if
