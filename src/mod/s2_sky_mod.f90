@@ -2168,16 +2168,17 @@ module s2_sky_mod
                   ! Find nearest pixel to use in computing finite difference.
                   call ang2pix_ring(sky%nside, theta_adj, phi, ipix_adj)
 
-                  opx(iop, 0) = ipix
-                  opx(iop, 1) = ipix_adj
-                  opx(iop, 2) = 1d0
-                  iop = iop + 1
+                  if(theta_adj <= theta_fov/2.0) then
+                     opx(iop, 0) = ipix
+                     opx(iop, 1) = ipix_adj
+                     opx(iop, 2) = 1d0
+                     iop = iop + 1
 
-                  opx(iop, 0) = ipix
-                  opx(iop, 1) = ipix
-                  opx(iop, 2) = -1d0
-                  iop = iop + 1
-
+                     opx(iop, 0) = ipix
+                     opx(iop, 1) = ipix
+                     opx(iop, 2) = -1d0
+                     iop = iop + 1
+                  end if
                else
 
                   ! Compute convolution weights.
