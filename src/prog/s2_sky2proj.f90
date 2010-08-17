@@ -64,11 +64,14 @@ program s2_sky2proj
   logical :: save_op = .false.
   logical :: save_convop = .false.
   logical :: save_xmap = .false.
+  logical :: save_ang = .false.
   character(len=S2_STRING_LEN) :: filename_op, filename_convop, filename_xmap
+  character(len=S2_STRING_LEN) :: filename_ang
   integer :: nsphere, nop, j, fileid
   integer, allocatable :: op(:,:)
   real(s2_dp), allocatable :: op_dp(:,:)
   real(s2_sp), allocatable :: xmap(:)
+  real(s2_dp), allocatable :: thetas(:), phis(:)
 
   ! Parse input parameters.
   call parse_options()
@@ -125,7 +128,7 @@ program s2_sky2proj
   call s2_proj_write_image_file(proj, trim(filename_out))
 
   ! Write the projection operator to file.
-  if (save_op .or. save_xmap) then
+  if (save_op .or. save_xmap .or. save_ang) then
 
       select case(method)
 
@@ -163,6 +166,23 @@ program s2_sky2proj
                end do
 
                close(fileid)
+
+            end if
+
+            if(save_ang) then
+
+               fileid = 45
+               open(unit=fileid, file=trim(filename_ang), status='new', action='write', &
+                    form='formatted')
+
+               if(allocated(xmap)) deallocate(xmap)
+               call s2_proj_get_xmap(proj, nside, nsphere, xmap, thetas, phis)
+               do j = 0,nsphere-1
+                  write(fileid,'(e20.10,e20.10)') thetas(j), phis(j)
+               end do
+
+               close(fileid)
+               deallocate(thetas, phis)
 
             end if
 
@@ -204,6 +224,23 @@ program s2_sky2proj
                end do
 
                close(fileid)
+
+            end if
+
+            if(save_ang) then
+
+               fileid = 45
+               open(unit=fileid, file=trim(filename_ang), status='new', action='write', &
+                    form='formatted')
+
+               if(allocated(xmap)) deallocate(xmap)
+               call s2_proj_get_xmap(proj, nside, nsphere, xmap, thetas, phis)
+               do j = 0,nsphere-1
+                  write(fileid,'(e20.10,e20.10)') thetas(j), phis(j)
+               end do
+
+               close(fileid)
+               deallocate(thetas, phis)
 
             end if
 
@@ -299,6 +336,7 @@ program s2_sky2proj
             write(*,'(a)') '                   [-convop_file filenameconv_op (optional)]'
             write(*,'(a)') '                   [-sigma_conv sigma_conv (optional)]'
             write(*,'(a)') '                   [-xmap_file filename_xmap (optional)]'
+            write(*,'(a)') '                   [-ang_file filename_ang (optional)]'
             stop
           
           case ('-inp')
@@ -336,6 +374,10 @@ program s2_sky2proj
           case ('-xmap_file')
             filename_xmap = trim(arg)
             save_xmap = .true.
+
+          case ('-ang_file')
+            filename_ang = trim(arg)
+            save_ang = .true.
 
           case default
             print '("unknown option ",a4," ignored")', opt            

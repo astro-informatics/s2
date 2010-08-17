@@ -29,6 +29,7 @@ module s2_proj_mod
     s2_proj_free, &
     s2_proj_operator_nearest_neighbour, &
     s2_proj_operator_kernel, &
+    s2_proj_get_xmap, &
     s2_proj_write_image_file
 
 
@@ -1060,6 +1061,113 @@ if(mod(N,2) /= 0) N = N + 1
       
     end subroutine s2_proj_projection_harmonic_interp
 
+
+    !--------------------------------------------------------------------------
+    ! s2_proj_get_xmap
+    !
+    !! Compute xmap, theta and phi arrays for spherical cap within FOV.
+    !!
+    !! Notes:
+    !!   - Space for xmap, thetas and phis allocate herein; must be freed by  
+    !!     calling routine.
+    !!
+    !! Variables:
+    !!   - proj: Projected sky.
+    !!   - [nside]: Optional Healpix nside to consider in map of sky when 
+    !!     projecting image (if not provided taken from sky).
+    !!   - nsphere: Number of pixels on the sphere within the fov.
+    !!   - xmap(0:nsphere-1): Vector of pixels values on the sphere within 
+    !!     the fov.
+    !!   - thetas(0:nsphere-1): Vector of theta positions on the sphere within 
+    !!     the fov.
+    !!   - phis(0:nsphere-1): Vector of phi positions on the sphere within 
+    !!     the fov.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   August 2010 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_proj_get_xmap(proj, nside, nsphere, xmap, thetas, phis)
+
+      use s2_vect_mod
+      use pix_tools, only: ang2pix_ring, ang2pix_nest, pix2ang_ring
+
+      type(s2_proj), intent(inout) :: proj
+      integer, intent(in), optional :: nside
+      integer, intent(out) :: nsphere
+      real(s2_sp), allocatable, intent(out) :: xmap(:)
+      real(s2_dp), allocatable, intent(out) :: thetas(:)
+      real(s2_dp), allocatable, intent(out) :: phis(:)
+
+      integer :: nside_use, npix
+      integer :: fail = 0
+      real(s2_dp) :: theta, phi
+      integer :: ipix
+      real(s2_sp), allocatable :: map(:)
+
+      ! Check object already initialised.
+      if(.not. proj%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_proj_get_xmap')
+        return
+      end if
+
+      ! Only projection of upper hemisphere supported at present.
+      if(proj%field /= S2_PROJ_FIELD_HEMISPHERE_UPPER) then
+         call s2_error(S2_ERROR_PROJ_FIELD_INVALID, 's2_proj_get_xmap', &
+              comment_add='Only upper hemisphere supported at present.')
+      end if
+
+      ! Get local parameters.
+      if(present(nside)) then
+         nside_use = nside
+      else
+         nside_use = s2_sky_get_nside(proj%parent)
+      end if
+
+      ! Ensure sky map is defined and compute otherwise.
+      call s2_sky_compute_map(proj%parent, nside_use)
+
+      ! Ensure map in RING pixelisation scheme.
+      call s2_sky_map_convert(proj%parent, S2_SKY_RING)
+      npix = s2_sky_get_npix(proj%parent)
+     
+      ! Get xmap vector.
+      allocate(map(0:npix-1), stat=fail)
+      if(fail /= 0) then
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_get_xmap')
+      end if
+      call s2_sky_get_map(proj%parent, map)
+
+      nsphere = 0
+      do ipix = 0,npix-1 
+         call pix2ang_ring(nside_use, ipix, theta, phi)
+         if(theta > proj%theta_fov/2.0) then
+            nsphere = ipix
+            exit            
+         end if
+      end do
+
+      ! Allocate space for output data.
+      allocate(xmap(0:nsphere-1), stat=fail)
+      allocate(thetas(0:nsphere-1), stat=fail)
+      allocate(phis(0:nsphere-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_proj_operator_kernel')
+      end if
+
+      ! Compute output data.
+      xmap(0:nsphere-1) = map(0:nsphere-1)
+      do ipix = 0,nsphere-1
+         call pix2ang_ring(nside_use, ipix, thetas(ipix), phis(ipix))
+      end do
+
+      ! Free temporary memory.    
+      deallocate(map)
+
+    end subroutine s2_proj_get_xmap
+    
 
     !--------------------------------------------------------------------------
     ! s2_proj_write_image_file
