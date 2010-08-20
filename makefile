@@ -141,7 +141,8 @@ prog:    $(S2BIN)/s2_nonzero     \
          $(S2BIN)/s2_sky2proj    \
          $(S2BIN)/s2_skyfov      \
          $(S2BIN)/s2_skyconvsp   \
-         $(S2BIN)/s2_skyder
+         $(S2BIN)/s2_skyder      \
+         $(S2BIN)/s2_xmap2map
 
 $(S2INC)/%.o: $(S2SRC)/%.f90
 	$(FC) $(FFLAGS) $(PPFLAGS) -c $< -o $@ 
@@ -412,4 +413,9 @@ $(S2BIN)/s2_skyconvsp:          $(S2INC)/s2_skyconvsp.o
 $(S2INC)/s2_skyder.o:        $(S2PROG)/s2_skyder.f90 lib
 $(S2BIN)/s2_skyder:          $(S2INC)/s2_skyder.o
 	$(FC) -o $(S2BIN)/s2_skyder $(S2INC)/s2_skyder.o \
+	$(LDFLAGS) $(PPFLAGS) 
+
+$(S2INC)/s2_xmap2map.o:        $(S2PROG)/s2_xmap2map.f90 lib
+$(S2BIN)/s2_xmap2map:          $(S2INC)/s2_xmap2map.o
+	$(FC) -o $(S2BIN)/s2_xmap2map $(S2INC)/s2_xmap2map.o \
 	$(LDFLAGS) $(PPFLAGS) 

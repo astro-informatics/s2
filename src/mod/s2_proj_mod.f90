@@ -668,7 +668,7 @@ if(mod(N,2) /= 0) N = N + 1
 
            if(theta <= proj%theta_fov/2.0) then
 
-              sigma(1) = 0.02!16
+              sigma(1) = 0.02  !0.004 !02!16
               support_theta = 4 * sigma(1)
               proj%image(i,j) = s2_sky_convpt_space(sky, support_theta, kernel, &
                    theta, phi, sigma)
@@ -838,7 +838,7 @@ if(mod(N,2) /= 0) N = N + 1
 
            if(theta <= proj%theta_fov/2.0) then
 
-              sigma(1) = 0.02!16
+              sigma(1) = 0.02 ! 0.004 !2!16
               support_theta = 4 * sigma(1)
               call s2_sky_convpt_space_weights(nweights, indices, weights, &
                    nside_use, S2_SKY_RING, support_theta, kernel, &
