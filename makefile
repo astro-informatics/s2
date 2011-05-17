@@ -28,7 +28,7 @@ OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5 -m64
 
 # ======== LINKS ========
 
-PROGDIR = /Users/mcewen/src
+PROGDIR = /Users/jdm/Src
 
 HPIXDIR = $(PROGDIR)/Healpix
 HPIXLIB = $(HPIXDIR)/lib
