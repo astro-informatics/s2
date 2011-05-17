@@ -96,6 +96,8 @@ S2OBJ  = $(S2INC)/s2_types_mod.o   \
           $(S2INC)/s2_proj_mod.o   \
           $(S2INC)/s2_ylm_mod.o 
 
+#          $(S2INC)/s2_graph_mod.o  \
+
 
 # ======== MAKE RULES ========
 
@@ -226,6 +228,11 @@ $(S2INC)/s2_proj_mod.o:  $(S2SRC)/s2_proj_mod.f90   \
                              $(S2INC)/s2_error_mod.o \
                              $(S2INC)/s2_sky_mod.o  \
                              $(S2INC)/s2_ylm_mod.o
+$(S2INC)/s2_graph_mod.o:  $(S2SRC)/s2_graph_mod.f90   \
+                             $(S2INC)/s2_types_mod.o \
+                             $(S2INC)/s2_error_mod.o \
+                             $(S2INC)/s2_vect_mod.o \
+                             $(S2INC)/s2_sky_mod.o
 
 
 # Program dependencies and compilation
