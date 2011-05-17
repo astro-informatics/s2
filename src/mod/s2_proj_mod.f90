@@ -1,5 +1,5 @@
 !------------------------------------------------------------------------------
-! s2_sky_mod -- S2 library sky class
+! s2_proj_mod -- S2 library proj class
 !
 !! Provides functionality to project a sky object onto a planar image.
 !
