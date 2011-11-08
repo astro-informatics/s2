@@ -16,21 +16,8 @@
 program s2_about
 
   use s2_types_mod
-  use s2_sky_mod
-  use s2_error_mod
 
   implicit none
-
-  character(len=*), parameter ::  MAP_FILE = 'map'
-  character(len=*), parameter ::  SKY_FILE = 'sky'
-  character(len=*), parameter ::  RING_STR = 'ring'
-  character(len=*), parameter ::  NEST_STR = 'nest'
-  integer :: file_type = S2_SKY_FILE_TYPE_MAP, ext = 1
-  character(len=S2_STRING_LEN) :: filename_in, filename_out
-  character(len=S2_STRING_LEN) :: file_type_str = MAP_FILE
-  character(len=S2_STRING_LEN) :: order_str
-  integer :: order
-  type(s2_sky) :: sky
 
   ! Parse input parameters.
   call parse_options()
