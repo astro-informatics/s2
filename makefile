@@ -1,5 +1,4 @@
 # Makefile for s2 library
-# Jason McEwen
 
 
 # ======== OPTIONS ========
