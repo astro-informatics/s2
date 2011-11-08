@@ -82,7 +82,7 @@ program s2_alm2sky
         call getArgument(i,opt)
      
         if (i == n .and. trim(opt) /= '-help') then
-          write(*,*) 'option ', opt, ' has no argument'
+          write(*,'(a,a,a)') 'Option ', trim(opt), ' has no argument'
           stop
         end if
      
@@ -112,7 +112,7 @@ program s2_alm2sky
             compute_map = .true.
 
           case default
-            print '("unknown option ",a4," ignored")', opt            
+            print '("Unknown option ",a," ignored")', trim(opt)
 
         end select
       end do

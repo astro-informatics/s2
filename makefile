@@ -21,7 +21,7 @@ ifeq ($(FC),f95)
   OPTF95 = -w=x95
 endif
 
-OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5 -m64
+OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5 -m64 -O3 -DS2_VERSION=\"1.0b2\" -DS2_BUILD=\"`svnversion -n .`\" 
 #OPT = $(OPTPGPLOT) $(OPTF95) -DMAKE_COADDED_DATA_MAP -DWMAP3 -DDEBUG
 
 
@@ -143,7 +143,8 @@ prog:    $(S2BIN)/s2_nonzero     \
          $(S2BIN)/s2_skyfov      \
          $(S2BIN)/s2_skyconvsp   \
          $(S2BIN)/s2_skyder      \
-         $(S2BIN)/s2_xmap2map
+         $(S2BIN)/s2_xmap2map    \
+         $(S2BIN)/s2_about
 
 $(S2INC)/%.o: $(S2SRC)/%.f90
 	$(FC) $(FFLAGS) $(PPFLAGS) -c $< -o $@ 
@@ -424,4 +425,9 @@ $(S2BIN)/s2_skyder:          $(S2INC)/s2_skyder.o
 $(S2INC)/s2_xmap2map.o:        $(S2PROG)/s2_xmap2map.f90 lib
 $(S2BIN)/s2_xmap2map:          $(S2INC)/s2_xmap2map.o
 	$(FC) -o $(S2BIN)/s2_xmap2map $(S2INC)/s2_xmap2map.o \
+	$(LDFLAGS) $(PPFLAGS) 
+
+$(S2INC)/s2_about.o:        $(S2PROG)/s2_about.f90 lib
+$(S2BIN)/s2_about:          $(S2INC)/s2_about.o
+	$(FC) -o $(S2BIN)/s2_about $(S2INC)/s2_about.o \
 	$(LDFLAGS) $(PPFLAGS) 

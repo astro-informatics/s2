@@ -148,7 +148,7 @@ program s2_sky2cl
         call getArgument(i,opt)
      
         if (i == n .and. trim(opt) /= '-help') then
-          write(*,*) 'option ', opt, ' has no argument'
+          write(*,'(a,a,a)') 'Option ', trim(opt), ' has no argument'
           stop
         end if
      
@@ -159,15 +159,15 @@ program s2_sky2cl
   
           case ('-help')
             write(*,'(a)') 'Usage: s2_sky2cl [-inp filename_in]'
-            write(*,'(a)') '                  [-out filename_out]'
-            write(*,'(a)') '                  [-beam filename_beam]'
-            write(*,'(a,a)') '                  ', &
+            write(*,'(a)') '                 [-out filename_out]'
+            write(*,'(a)') '                 [-beam filename_beam]'
+            write(*,'(a,a)') '                 ', &
                  '[-type file_type (''map'' or ''sky'')]'
-            write(*,'(a)') '                  [-lmax lmax]'
-            write(*,'(a)') '                  [-mmax mmax]' 
-            write(*,'(a)') '                  [-dil1 dil1]'
-            write(*,'(a)') '                  [-dil2 dil2]'
-            write(*,'(a)') '                  [-npres norm_pres]'
+            write(*,'(a)') '                 [-lmax lmax]'
+            write(*,'(a)') '                 [-mmax mmax]' 
+            write(*,'(a)') '                 [-dil1 dil1]'
+            write(*,'(a)') '                 [-dil2 dil2]'
+            write(*,'(a)') '                 [-npres norm_pres]'
             stop
           
           case ('-inp')
@@ -203,7 +203,7 @@ program s2_sky2cl
             read(arg,*) norm_pres
 
           case default
-            print '("unknown option ",a4," ignored")', opt            
+            print '("Unknown option ",a," ignored")', trim(opt)            
 
         end select
       end do

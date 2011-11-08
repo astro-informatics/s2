@@ -1,46 +1,51 @@
 !------------------------------------------------------------------------------
-! s2_map2matmap
+! s2_about
 !
-!! Read a HEALPix map fits file and write the read map to a matlab map file
-!! that can be plotted by s2ea.
+!! Display information about the S2 package.
 !!
 !! Usage: 
 !!   - [-help]: Display usage information.
-!!   - [-inp filename_inp]: Name of map HEAPix fits file to read.
-!!   - [-out filename_out]: Name of matlab map file to write.
-!!   - [-ext extension]: Optional extension of HEALpix map fits file to read 
-!!     map from.
-!!   - [-B B]: Band-limit of sphere in written matlab map file.
 !
 !! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
+!! @version 0.1 - November 2011
 !
 ! Revisions:
-!   June 2010 - Written by Jason McEwen 
+!   November 2011 - Written by Jason McEwen
 !------------------------------------------------------------------------------
 
-program s2_map2matmap
+program s2_about
 
   use s2_types_mod
   use s2_sky_mod
+  use s2_error_mod
 
   implicit none
 
-  character(len=S2_STRING_LEN) :: filename_inp, filename_out
+  character(len=*), parameter ::  MAP_FILE = 'map'
+  character(len=*), parameter ::  SKY_FILE = 'sky'
+  character(len=*), parameter ::  RING_STR = 'ring'
+  character(len=*), parameter ::  NEST_STR = 'nest'
+  integer :: file_type = S2_SKY_FILE_TYPE_MAP, ext = 1
+  character(len=S2_STRING_LEN) :: filename_in, filename_out
+  character(len=S2_STRING_LEN) :: file_type_str = MAP_FILE
+  character(len=S2_STRING_LEN) :: order_str
+  integer :: order
   type(s2_sky) :: sky
-  integer :: ext = 1
-  integer :: B = 128
 
   ! Parse input parameters.
   call parse_options()
 
-  ! Initialse sky with map read in from map fits file.
-  sky = s2_sky_init(filename_inp, S2_SKY_FILE_TYPE_MAP, ext)
+  ! Display info.
+  write(*,'(a)') "=========================================================="
+  write(*,'(a)') "S2 package to analyse functions on the sphere"
+  write(*,'(a)') "By Jason McEwen"
 
-  ! Write healpix map to matlab file.
-  call s2_sky_write_matmap_file(sky, filename_out, B)
+  write(*,'(a)') "See www.jasonmcewen.org for more information."
+  write(*,'(a)') "See LICENSE.txt for license details."
 
-  ! Free memory.
-  call s2_sky_free(sky)
+  write(*,'(a,a)') "Version: ", S2_VERSION
+  write(*,'(a,a)') "Build: ", S2_BUILD
+  write(*,'(a)') "=========================================================="
 
 
  !----------------------------------------------------------------------------
@@ -87,23 +92,8 @@ program s2_map2matmap
         select case (trim(opt))
   
           case ('-help')
-            write(*,'(a)') 'Usage: s2_map2matmap [-inp filename_inp]'
-            write(*,'(a)') '                     [-out filename_out]'
-            write(*,'(a)') '                     [-ext ext (optional)]'
-            write(*,'(a)') '                     [-B B]'
+            write(*,'(a)') 'Usage: s2_about'
             stop
-          
-          case ('-inp')
-            filename_inp = trim(arg)
-
-          case ('-out')
-            filename_out = trim(arg)
-
-          case ('-ext')
-            read(arg,*) ext
-
-         case ('-B')
-            read(arg,*) B
 
           case default
             print '("Unknown option ",a," ignored")', trim(opt)            
@@ -114,4 +104,8 @@ program s2_map2matmap
     end subroutine parse_options
 
 
-end program s2_map2matmap
+end program s2_about
+
+
+
+

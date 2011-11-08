@@ -77,7 +77,7 @@ program s2_plplot
         call getArgument(i,opt)
      
         if (i == n .and. trim(opt) /= '-help') then
-          write(*,*) 'option ', opt, ' has no argument'
+          write(*,'(a,a,a)') 'Option ', trim(opt), ' has no argument'
           stop
         end if
      
@@ -88,9 +88,9 @@ program s2_plplot
   
           case ('-help')
             write(*,'(a)') 'Usage: s2_plplot [-inp filename_in]'
-            write(*,'(a)') '                  [-out filename_out]'
-            write(*,'(a)') '                  [-scale scale]'
-            write(*,'(a)') '                  [-title title]'
+            write(*,'(a)') '                 [-out filename_out]'
+            write(*,'(a)') '                 [-scale scale]'
+            write(*,'(a)') '                 [-title title]'
             stop
           
           case ('-inp')
@@ -106,7 +106,7 @@ program s2_plplot
             title = trim(arg)
 
           case default
-            print '("unknown option ",a4," ignored")', opt            
+            print '("Unknown option ",a," ignored")', trim(opt)
 
         end select
       end do

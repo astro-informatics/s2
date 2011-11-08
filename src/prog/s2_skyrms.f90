@@ -96,7 +96,7 @@ program s2_skyrms
         call getArgument(i,opt)
      
         if (i == n .and. trim(opt) /= '-help') then
-          write(*,*) 'option ', opt, ' has no argument'
+          write(*,'(a,a,a)') 'Option ', trim(opt), ' has no argument'
           stop
         end if
      
@@ -121,7 +121,7 @@ program s2_skyrms
             read(arg,*) ext
 
           case default
-            print '("unknown option ",a4," ignored")', opt            
+            print '("Unknown option ",a," ignored")', trim(opt)            
 
         end select
       end do
