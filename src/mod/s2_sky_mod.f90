@@ -3153,7 +3153,7 @@ module s2_sky_mod
       end if
 
       ! Initialise output sky with new alms.
-      c = s2_sky_init_alm(alm_temp, lmax, mmax)
+      c = s2_sky_init_alm(alm_temp, lmax, mmax, nside, pix_scheme)
 
       ! Free memory used for temporary storage.
       deallocate(alm_temp)
