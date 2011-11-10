@@ -3469,6 +3469,7 @@ module s2_sky_mod
       real(s2_dp) :: theta, phi, theta_dil, phi_dil
       real(s2_sp) :: D, R, A2, cocycle
       real(s2_sp), allocatable :: map_dil(:)
+      real(s2_sp), parameter :: TOL = 1d-8
 
       ! Check object initialised.
       if(.not. sky%init) then
@@ -3487,6 +3488,10 @@ module s2_sky_mod
          call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_dilate')
       end if
 
+      ! If dilations a=b=1, then do nothing.
+      if (abs(a - 1e0) < TOL .and. abs(b - 1e0) < TOL) return
+
+      ! Dilate function.
       do ipix = 0,sky%npix-1
 
          ! Get theta and phi angles corresponding to pixel.
