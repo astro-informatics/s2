@@ -870,20 +870,20 @@ module s2_pl_mod
       
       open(unit=fileid, file=filename, status='replace', action='write')
 
-write(fileid,*) 'cl=['
+!write(fileid,*) 'cl=['
 
       do l = 0, pl%lmax
 
          if(scale) then
             write(fileid,'(i4,e20.10)') l, pl%pl(l) * l * (l+1) / (2.0e0*pi)
          else
-!            write(fileid,'(i4,e20.10)') l, pl%pl(l)
-            write(fileid,'(e20.10,a)') pl%pl(l), ';'
+            write(fileid,'(i4,e20.10)') l, pl%pl(l)
+!            write(fileid,'(e20.10,a)') pl%pl(l), ';'
          end if
 
       end do
 
-write(fileid,*) '];'
+!write(fileid,*) '];'
 
       close(fileid)
 
