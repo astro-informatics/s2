@@ -51,7 +51,7 @@ module s2_sky_mod
     s2_sky_azimuthal_bl, &
     s2_sky_admiss, &
     s2_sky_admiss_dil, s2_sky_fov, &
-    s2_sky_extract_ab, s2_sky_extract_ab_fsht, &
+    s2_sky_extract_ab, s2_sky_extract_ab_fssht, &
     s2_sky_downsample, s2_sky_upsample, &
     s2_sky_draw_dot, &
     s2_sky_write_map_file, s2_sky_write_matmap_file, &
@@ -4194,10 +4194,10 @@ module s2_sky_mod
 
 
     !--------------------------------------------------------------------------
-    ! s2_sky_extract_ab_fsht
+    ! s2_sky_extract_ab_fssht
     !
     !! Extra an ecp (equispaced) sampled theta-phi array over the sphere
-    !! for the grid used for the Fast Spherical Harmonic Transform.
+    !! for the grid used for the Fast Spin Spherical Harmonic Transform.
     !!
     !! Notes:
     !!   - No interpolation performed.
@@ -4215,12 +4215,12 @@ module s2_sky_mod
     !   April 2008 - Written by Jason McEwen
     !--------------------------------------------------------------------------
 
-    subroutine s2_sky_extract_ab_fsht(sky, xtp, L)
+    subroutine s2_sky_extract_ab_fssht(sky, xtp, L)
 
       use pix_tools, only: ang2pix_ring, ang2pix_nest
 
       type(s2_sky), intent(in) :: sky
-      real(s2_sp), intent(out) :: xtp(0:L,0:2*L)
+      real(s2_dp), intent(out) :: xtp(0:L-1,0:2*L-2)
       integer, intent(in) :: L
 
       integer :: itheta, iphi, ipix
@@ -4228,18 +4228,18 @@ module s2_sky_mod
 
       ! Check object initialised.
       if(.not. sky%init) then
-        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_extract_ab_fsht')
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_extract_ab_fssht')
       end if
 
-      do itheta = 0,L
+      do itheta = 0,L-1
 
-         theta = 2*pi*(2.*itheta+1)/real(2*(2*L+1),s2_dp)
+         theta = pi*(2.*itheta+1)/real(2*L-1,s2_dp)
          theta = mod(theta, PI)
-         if(theta>=3.1415926) theta = 3.1415926
+         if(theta>=3.1415926) theta = 3.1415926 ! Since theta include South Pole.
 
-         do iphi = 0,2*L
+         do iphi = 0,2*L-2
 
-            phi = 2*pi*(2.*iphi+1)/real(2*(2*L+1),s2_dp)
+            phi = 2*pi*iphi/real(2*L-1,s2_dp)
             phi = mod(phi, 2*PI)
 
             ! Compute index corresponding to theta (beta) and phi (alpha)
@@ -4249,17 +4249,16 @@ module s2_sky_mod
             else if(sky%pix_scheme == S2_SKY_NEST) then
                call ang2pix_nest(sky%nside, theta, phi, ipix)
             else
-               call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_extract_ab_fsht')
+               call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_extract_ab_fssht')
             end if
             
             xtp(itheta, iphi) = sky%map(ipix)
-write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
 
          end do
          
       end do
-      
-    end subroutine s2_sky_extract_ab_fsht
+
+    end subroutine s2_sky_extract_ab_fssht
 
 
     !--------------------------------------------------------------------------
@@ -4297,7 +4296,7 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
 
       ! Check object initialised.
       if(.not. sky%init) then
-        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_extract_ab_fsht')
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_extract_ab_s2dw')
       end if
 
       do itheta = 0,2*B-1
@@ -4317,7 +4316,7 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
             else if(sky%pix_scheme == S2_SKY_NEST) then
                call ang2pix_nest(sky%nside, theta, phi, ipix)
             else
-               call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_extract_ab_fsht')
+               call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_extract_ab_s2dw')
             end if
             
             xtp(itheta, iphi) = sky%map(ipix)
@@ -5202,19 +5201,23 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
     !   June 2010 - Written by Jason McEwen
     !--------------------------------------------------------------------------
 
-    subroutine s2_sky_write_matmap_file(sky, filename, B, comment)
+    subroutine s2_sky_write_matmap_file(sky, filename, B, optimal_grid, comment)
 
       use pix_tools, only: pix2ang_ring, pix2ang_nest
 
       type(s2_sky), intent(in) :: sky
       character(len=*), intent(in) :: filename
       integer, intent(in) :: B
+      logical, intent(in), optional :: optimal_grid
       character(len=*), intent(in), optional :: comment
 
       real(s2_dp) :: theta, phi
-      integer :: fileid, ipix, itheta, iphi
+      integer :: fileid, ipix, itheta, iphi, ntheta
       integer :: fail = 0
+      logical :: optimal_grid_use
       real(s2_dp), allocatable :: xtp(:,:)
+
+      optimal_grid_use = .true.
 
       ! Check object initialised.
       if(.not. sky%init) then
@@ -5227,12 +5230,24 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
       end if
 
       ! Extract equi-angular sampled sphere to write to file.
-      allocate(xtp(0:2*B-1,0:2*B-2), stat=fail)
-      if(fail /= 0) then 
-         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
-              's2_sky_write_matmap_file')
+      if (present(optimal_grid)) optimal_grid_use = optimal_grid
+      if (optimal_grid_use) then
+         ntheta = B
+         allocate(xtp(0:ntheta-1,0:2*B-2), stat=fail)
+         if(fail /= 0) then 
+            call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
+                 's2_sky_write_matmap_file')
+         end if
+         call s2_sky_extract_ab_fssht(sky, xtp(0:ntheta-1,0:2*B-2), B)
+      else
+         ntheta = 2*B
+         allocate(xtp(0:ntheta-1,0:2*B-2), stat=fail)
+         if(fail /= 0) then 
+            call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
+                 's2_sky_write_matmap_file')
+         end if
+         call s2_sky_extract_ab_s2dw(sky, xtp, B)
       end if
-      call s2_sky_extract_ab_s2dw(sky, xtp, B)
 
       ! Open file.
       fileid = 11
@@ -5241,8 +5256,12 @@ write(*,*) 'xtp(', itheta+1, ',', iphi+1, ') = ', xtp(itheta, iphi), ';'
 
       ! Write to file.
       if(present(comment)) write(fileid,'(a,a)') '% ', trim(comment)
-      do itheta = 0,2*B-1
-         theta = pi*(2*itheta+1)/real(4*B,s2_dp)
+      do itheta = 0,ntheta-1
+         if (optimal_grid_use) then
+            theta = pi*(2.*itheta+1)/real(2*B-1,s2_dp)
+         else
+            theta = pi*(2*itheta+1)/real(4*B,s2_dp)
+         end if
          theta = mod(theta, PI)
          do iphi = 0,2*B-2
             phi = 2*pi*iphi/real(2*B-1,s2_dp)

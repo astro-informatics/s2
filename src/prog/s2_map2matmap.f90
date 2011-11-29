@@ -1,8 +1,8 @@
 !------------------------------------------------------------------------------
 ! s2_map2matmap
 !
-!! Read a HEALPix map fits file and write the read map to a matlab map file
-!! that can be plotted by s2ea.
+!! Read a HEALPix map fits file and extract an ecp (equispaced)
+!! sampled theta-phi array over the sphere for the grid used for FSSHT.
 !!
 !! Usage: 
 !!   - [-help]: Display usage information.

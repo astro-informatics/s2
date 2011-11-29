@@ -138,7 +138,6 @@ prog:    $(S2BIN)/s2_nonzero     \
          $(S2BIN)/s2_skythres    \
          $(S2BIN)/s2_ylm         \
          $(S2BIN)/s2_nmask       \
-         $(S2BIN)/s2_sky2fsht    \
          $(S2BIN)/s2_sky2proj    \
          $(S2BIN)/s2_skyfov      \
          $(S2BIN)/s2_skyconvsp   \
@@ -386,11 +385,6 @@ $(S2BIN)/s2_ylm:          $(S2INC)/s2_ylm.o
 $(S2INC)/s2_nmask.o:        $(S2PROG)/s2_nmask.f90 lib
 $(S2BIN)/s2_nmask:          $(S2INC)/s2_nmask.o
 	$(FC) -o $(S2BIN)/s2_nmask $(S2INC)/s2_nmask.o \
-	$(LDFLAGS) $(PPFLAGS) 
-
-$(S2INC)/s2_sky2fsht.o:        $(S2PROG)/s2_sky2fsht.f90 lib
-$(S2BIN)/s2_sky2fsht:          $(S2INC)/s2_sky2fsht.o
-	$(FC) -o $(S2BIN)/s2_sky2fsht $(S2INC)/s2_sky2fsht.o \
 	$(LDFLAGS) $(PPFLAGS) 
 
 $(S2INC)/s2_map2matmap.o:        $(S2PROG)/s2_map2matmap.f90 lib
