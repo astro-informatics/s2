@@ -29,15 +29,23 @@ program s2_gcmb
 
   use s2_types_mod
   use s2_cmb_mod
+  use s2_pl_mod
+  use s2_error_mod
+  use s2_vect_mod
 
   implicit none
 
   type(s2_cmb) :: cmb
-  integer :: nside, lmin, lmax, ncomment, seed
+  integer :: nside, lmin, lmax, ncomment, seed, fail = 0
   character(S2_STRING_LEN) :: filename_cl
   character(S2_STRING_LEN) :: filename_out = 'out.fits'
   logical :: scale_cl = .true.
   logical :: seed_set = .false.
+  real(s2_sp) :: noise_var = 0.0e0, beam_fwhm = 0.0e0
+  real(s2_sp), allocatable :: npl(:)
+  logical :: beam_present = .false.
+  logical :: noise_present = .false.
+  type(s2_pl) :: beam_pl, noise_pl, background_pl, background_pl_tmp
 
   ! Set default parameter values.
   nside = 512
@@ -55,9 +63,49 @@ program s2_gcmb
     call system_clock(seed)
   end if
 
-  ! Construct simulated cmb map.
-  cmb = s2_cmb_init(filename_cl, nside, lmin, lmax, ncomment, &
-      seed, scale_cl=scale_cl)
+  ! Read CMB power spectrum from file.
+  background_pl = s2_pl_init(filename_cl, lmin, &
+       lmax, ncomment, scale_cl)
+
+  ! Apply beam. 
+  if(beam_present) then
+
+     ! Convert beam_fwhm to radians.
+     beam_fwhm = s2_vect_arcmin_to_rad(beam_fwhm)
+
+     ! Construct beam.
+     beam_pl = s2_pl_init_guassian(beam_fwhm, lmax)
+
+     ! Convolve background spectrum with beam.
+     call s2_pl_conv(background_pl, beam_pl)
+
+write(*,*) 'Apply beam'
+
+  end if
+
+  ! Add noise.
+  if(noise_present) then
+
+     ! Generate noise pl vector.
+     allocate(npl(0:lmax), stat=fail)
+     if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_gcmb')
+     end if
+     npl(0:1) = 0e0
+     npl(2:lmax) = noise_var             
+     noise_pl = s2_pl_init(npl)
+     deallocate(npl)
+
+     ! Add noise spectrum.
+     background_pl_tmp = s2_pl_add(background_pl, noise_pl)
+     call s2_pl_free(background_pl)
+     background_pl = s2_pl_init(background_pl_tmp)
+     call s2_pl_free(background_pl_tmp)
+write(*,*) 'Add noise'
+  end if
+
+  ! Simulate CMB.
+  cmb = s2_cmb_init(background_pl, nside, seed, compute_map=.true.) 
 
   ! Write computed map to output file.
   call s2_cmb_write_sky(cmb, filename_out)
@@ -111,13 +159,15 @@ program s2_gcmb
   
           case ('-help')
             write(*,'(a)') 'Usage: s2_gcmb [-inp filename_cl]'
-            write(*,'(a)') '                [-scale_cl scale_cl (logical)]'
-            write(*,'(a)') '                [-out filename_out]'
-            write(*,'(a)') '                [-nside nside]'
-            write(*,'(a)') '                [-lmax lmax]'
-            write(*,'(a)') '                [-lmin lmin]'
-            write(*,'(a)') '                [-ncomment ncomment]'
-            write(*,'(a)') '                [-seed seed]'
+            write(*,'(a)') '               [-scale_cl scale_cl (logical)]'
+            write(*,'(a)') '               [-out filename_out]'
+            write(*,'(a)') '               [-nside nside]'
+            write(*,'(a)') '               [-lmax lmax]'
+            write(*,'(a)') '               [-lmin lmin]'
+            write(*,'(a)') '               [-beam_fwhm beam_fwhm]'
+            write(*,'(a)') '               [-noise_var noise_var]'
+            write(*,'(a)') '               [-ncomment ncomment]'
+            write(*,'(a)') '               [-seed seed]'
             stop
           
           case ('-inp')
@@ -137,6 +187,14 @@ program s2_gcmb
 
           case ('-lmin')
             read(arg,*) lmin
+
+          case ('-beam_fwhm')
+            read(arg,*) beam_fwhm
+            beam_present = .true.
+
+          case ('-noise_var')
+            read(arg,*) noise_var
+            noise_present = .true.
 
           case ('-ncomment')
             read(arg,*) ncomment
