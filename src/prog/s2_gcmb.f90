@@ -79,8 +79,6 @@ program s2_gcmb
      ! Convolve background spectrum with beam.
      call s2_pl_conv(background_pl, beam_pl)
 
-write(*,*) 'Apply beam'
-
   end if
 
   ! Add noise.
@@ -101,7 +99,7 @@ write(*,*) 'Apply beam'
      call s2_pl_free(background_pl)
      background_pl = s2_pl_init(background_pl_tmp)
      call s2_pl_free(background_pl_tmp)
-write(*,*) 'Add noise'
+
   end if
 
   ! Simulate CMB.
