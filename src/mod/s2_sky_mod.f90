@@ -42,7 +42,7 @@ module s2_sky_mod
     s2_sky_der_discrete_grad, &
     s2_sky_conv, s2_sky_conv_space, s2_sky_convpt_space, &
     s2_sky_conv_space_fovop, s2_sky_convpt_space_weights, &
-    s2_sky_offset, s2_sky_scale,  &
+    s2_sky_offset, s2_sky_scale, s2_sky_fun, &
     s2_sky_add, s2_sky_add_alm, s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
     s2_sky_error_twonorm, s2_sky_rms, & ! s2_sky_error_onenorm, s2_sky_error_pnorm, &
     s2_sky_dilate, &
@@ -2997,6 +2997,58 @@ module s2_sky_mod
       if(sky%alm_status) sky%alm = sky%alm * scale
 
     end subroutine s2_sky_scale
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_fun
+    !
+    !! Apply the function fun to each pixel in the map.
+    !!
+    !! Variables:
+    !!   - sky: Sky to apply function to.
+    !!   - fun: Function to apply to each pixel of the map.
+    !
+    !! @author J. D. McEwen
+    !! @version 0.1 December 2012
+    !
+    ! Revisions:
+    !   December 2012 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_fun(sky, fun)
+
+      type(s2_sky), intent(inout) :: sky
+      interface 
+         function fun(x) result(val)
+          use s2_types_mod
+          real(s2_sp), intent(in) :: x
+          real(s2_sp) :: val
+        end function fun
+      end interface
+
+      integer :: ipix
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_fun')
+      end if 
+
+      ! Check map present.
+      if(.not. sky%map_status) call s2_sky_compute_map(sky)
+
+      ! Apply the passed function to each pixel in the map.
+      do ipix = 0,sky%npix-1
+          sky%map(ipix) = fun(sky%map(ipix))
+      end do
+
+      ! Recompute alms if were present previously.
+      if(sky%alm_status) then
+         sky%alm_status = .false.
+         deallocate(sky%alm)
+         call s2_sky_compute_alm(sky)
+      end if      
+
+    end subroutine s2_sky_fun
 
 
     !--------------------------------------------------------------------------

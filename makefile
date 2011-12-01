@@ -144,6 +144,7 @@ prog:    $(S2BIN)/s2_nonzero     \
          $(S2BIN)/s2_skyder      \
          $(S2BIN)/s2_xmap2map    \
          $(S2BIN)/s2_axiconv     \
+         $(S2BIN)/s2_maps2stats     \
          $(S2BIN)/s2_about
 
 $(S2INC)/%.o: $(S2SRC)/%.f90
@@ -425,6 +426,11 @@ $(S2BIN)/s2_xmap2map:          $(S2INC)/s2_xmap2map.o
 $(S2INC)/s2_axiconv.o:        $(S2PROG)/s2_axiconv.f90 lib
 $(S2BIN)/s2_axiconv:          $(S2INC)/s2_axiconv.o
 	$(FC) -o $(S2BIN)/s2_axiconv $(S2INC)/s2_axiconv.o \
+	$(LDFLAGS) $(PPFLAGS) 
+
+$(S2INC)/s2_maps2stats.o:        $(S2PROG)/s2_maps2stats.f90 lib
+$(S2BIN)/s2_maps2stats:          $(S2INC)/s2_maps2stats.o
+	$(FC) -o $(S2BIN)/s2_maps2stats $(S2INC)/s2_maps2stats.o \
 	$(LDFLAGS) $(PPFLAGS) 
 
 $(S2INC)/s2_about.o:        $(S2PROG)/s2_about.f90 lib
