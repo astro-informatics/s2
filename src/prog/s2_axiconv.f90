@@ -141,7 +141,7 @@ program s2_axiconv
 
   ! Initialise convolved sky.
   sky_out = s2_sky_init(sky_out_alm, lmax, lmax, &
-       s2_sky_get_nside(sky_in), s2_sky_get_pix_scheme(sky_in))
+       s2_sky_get_nside(kernel), s2_sky_get_pix_scheme(sky_in))
 
   ! Compute map if required for output.
   if (file_type_out == S2_SKY_FILE_TYPE_MAP) then
