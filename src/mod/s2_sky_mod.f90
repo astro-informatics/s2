@@ -5374,9 +5374,18 @@ module s2_sky_mod
 
       ! Write to file.
       if(present(comment)) write(fileid,'(a,a)') '% ', trim(comment)
-      do m = 0,sky%lmax
-         do el = 0,sky%lmax
-            if (m <= sky%mmax) then
+      do el = 0,sky%lmax
+         do m = -el,-1
+            if (abs(m) <= sky%mmax) then
+               write(fileid,'(2e28.20)') &
+                    (-1)**abs(m) * real(sky%alm(el,abs(m)), s2_dp), &
+                    (-1) * (-1)**abs(m) * real(aimag(sky%alm(el,abs(m))), s2_dp)
+            else
+               write(fileid,'(2e28.20)') real(0.0, s2_dp), real(0.0, s2_dp)
+            end if
+         end do
+         do m = 0,el
+            if (abs(m) <= sky%mmax) then
                write(fileid,'(2e28.20)') &
                     real(sky%alm(el,m), s2_dp), real(aimag(sky%alm(el,m)), s2_dp)
             else

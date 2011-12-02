@@ -1,8 +1,7 @@
 !------------------------------------------------------------------------------
 ! s2_alm2matalm
 !
-!! Read a HEALPix alm fits file and write the read alms to a matlab alm file
-!! that can be consumed by s2ea.
+!! Read a HEALPix alm fits file and write the read alms to a matlab alm file.
 !!
 !! Usage: 
 !!   - [-help]: Display usage information.
