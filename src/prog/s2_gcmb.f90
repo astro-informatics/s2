@@ -9,6 +9,7 @@
 !!   - [-scale_cl scale_cl (logical)]: Logical to specify whether to scale
 !!     the input cl values by 2*pi/(l(l+1)).
 !!   - [-out filename_out]: Name of output cmb map file.
+!!   - [-file_type_out file_type_out_str]: String specifying output file type.
 !!   - [-nside nside]: Healpix nside resolution to generate map for.
 !!   - [-lmax lmax]: Maximum hamonic l to consider in power spectrum when
 !!     generating map.
@@ -29,6 +30,7 @@ program s2_gcmb
 
   use s2_types_mod
   use s2_cmb_mod
+  use s2_sky_mod
   use s2_pl_mod
   use s2_error_mod
   use s2_vect_mod
@@ -46,6 +48,14 @@ program s2_gcmb
   logical :: beam_present = .false.
   logical :: noise_present = .false.
   type(s2_pl) :: beam_pl, noise_pl, background_pl, background_pl_tmp
+  type(s2_sky) :: cmb_sky
+
+  character(len=*), parameter ::  MAP_FILE = 'map'
+  character(len=*), parameter ::  ALM_FILE = 'alm'
+  character(len=*), parameter ::  SKY_FILE = 'sky'
+  integer :: file_type_out = S2_SKY_FILE_TYPE_MAP
+  character(len=S2_STRING_LEN) :: file_type_out_str = MAP_FILE
+  logical :: compute_map = .false.
 
   ! Set default parameter values.
   nside = 512
@@ -57,6 +67,19 @@ program s2_gcmb
   
   ! Parse options.
   call parse_options()
+
+  ! Set out sky file type.
+  select case (trim(file_type_out_str))
+    case (MAP_FILE)
+       file_type_out = S2_SKY_FILE_TYPE_MAP
+    case (ALM_FILE)
+       file_type_out = S2_SKY_FILE_TYPE_ALM
+    case (SKY_FILE)
+       file_type_out = S2_SKY_FILE_TYPE_SKY
+    case default
+       call s2_error(S2_ERROR_SKY_FILE_INVALID, 's2_axiconv', &
+         comment_add='Invalid file type option')
+  end select
 
   ! Use system clock to set seed if not already specified.
   if(.not. seed_set) then
@@ -103,10 +126,13 @@ program s2_gcmb
   end if
 
   ! Simulate CMB.
-  cmb = s2_cmb_init(background_pl, nside, seed, compute_map=.true.) 
+  if (file_type_out /= S2_SKY_FILE_TYPE_ALM) compute_map = .true.
+  cmb = s2_cmb_init(background_pl, nside, seed, compute_map=compute_map) 
 
-  ! Write computed map to output file.
-  call s2_cmb_write_sky(cmb, filename_out)
+  ! Write output file.
+  cmb_sky = s2_cmb_get_sky(cmb)
+  call s2_sky_write_file(cmb_sky, filename_out, file_type_out)
+  call s2_sky_free(cmb_sky)
 
   ! Free memory.
   call s2_cmb_free(cmb)
@@ -159,6 +185,8 @@ program s2_gcmb
             write(*,'(a)') 'Usage: s2_gcmb [-inp filename_cl]'
             write(*,'(a)') '               [-scale_cl scale_cl (logical)]'
             write(*,'(a)') '               [-out filename_out]'
+            write(*,'(a,a)') '               ', &
+                 '[-file_type_out file_type_out_str (sky; map; alm)]'
             write(*,'(a)') '               [-nside nside]'
             write(*,'(a)') '               [-lmax lmax]'
             write(*,'(a)') '               [-lmin lmin]'
@@ -176,6 +204,9 @@ program s2_gcmb
             
           case ('-out')
             filename_out = trim(arg)
+
+          case ('-file_type_out')
+            file_type_out_str = trim(arg)
 
           case ('-nside')
             read(arg,*) nside
