@@ -309,8 +309,8 @@ module s2_sky_mod
 
     function s2_sky_init_alm(alm, lmax, mmax, nside, pix_scheme) result(sky)
     
-      complex(s2_spc), intent(in) :: alm(:,:)
       integer, intent(in) :: lmax, mmax
+      complex(s2_spc), intent(in) :: alm(0:lmax,0:mmax)
       integer, intent(in), optional :: nside, pix_scheme
       type(s2_sky) :: sky
 
@@ -337,8 +337,8 @@ module s2_sky_mod
         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_init_alm')
       end if
       
-      ! Save map.
-      sky%alm = alm
+      ! Save alms.
+      sky%alm(0:lmax,0:mmax) = alm(0:lmax,0:mmax)
 
       ! Set status and initialised flags.
       sky%alm_status = .true.
@@ -1045,7 +1045,7 @@ module s2_sky_mod
     end subroutine s2_sky_free
 
 
- 		!--------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
     ! s2_sky_remove_map
     !
     !! Free all data associated with a map and reset all map related 
@@ -1061,7 +1061,7 @@ module s2_sky_mod
     !   November 2007 - Written by Jason McEwen
     !--------------------------------------------------------------------------
 
- 		subroutine s2_sky_remove_map(sky)
+    subroutine s2_sky_remove_map(sky)
 
       type(s2_sky), intent(inout) :: sky
 
@@ -1430,7 +1430,7 @@ module s2_sky_mod
     !! Notes:
     !!   - Implementation is based on separation of vairables, however true 
     !!     separation of variables is not possible since irregular (theta,phi)
-    !!     grid may not be separable (for example, every point inthe grid may 
+    !!     grid may not be separable (for example, every point in the grid may 
     !!     have different (theta,phi)).
     !!
     !! Variables:
@@ -2993,8 +2993,8 @@ module s2_sky_mod
         call s2_error(S2_ERROR_NOT_INIT, 's2_sky_scale')
       end if 
 
-      if(sky%map_status) sky%map = sky%map * scale
-      if(sky%alm_status) sky%alm = sky%alm * scale
+      if(sky%map_status) sky%map(0:sky%npix-1) = sky%map(0:sky%npix-1) * scale
+      if(sky%alm_status) sky%alm(0:sky%lmax, 0:sky%mmax) = sky%alm(0:sky%lmax, 0:sky%mmax) * scale
 
     end subroutine s2_sky_scale
 

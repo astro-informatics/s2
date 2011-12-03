@@ -505,6 +505,9 @@ module s2_cmb_mod
          seed = cmb%seed
       end if
       
+      ! Ensure seed negative to initialise random deviate generators.
+      if (seed > 0) seed = -seed
+
       ! Remove any old sky.
       if(s2_sky_get_init(cmb%sky)) call s2_sky_free(cmb%sky)
 
@@ -517,6 +520,7 @@ module s2_cmb_mod
       if(fail /= 0) then
         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_init_map')
       end if
+      alm(0:lmax,0:mmax) = cmplx(0e0, 0e0)
 
       ! Create Gaussian alm based on clt spectrum.
       hsqrt2 = 1.0e0 / sqrt(2.0e0)
@@ -532,7 +536,7 @@ module s2_cmb_mod
          alm(l,0) = cmplx( &
            s2_distn_sample_gauss(seed, 0.0e0, std), &
            0.0e0 )
-        
+       
          ! m > 0 case
          do m = 1,l
             alm(l,m) = cmplx( &
@@ -543,7 +547,7 @@ module s2_cmb_mod
       end do
 
       ! Initialise sky from alm.
-      cmb%sky = s2_sky_init(alm, lmax, mmax, cmb%nside, &
+      cmb%sky = s2_sky_init(alm(0:lmax,0:mmax), lmax, mmax, cmb%nside, &
         DEFAUL_SKY_PIX_SCHEME)
 
       ! Free temporary storage space used.

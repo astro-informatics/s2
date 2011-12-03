@@ -141,8 +141,9 @@ module s2_distn_mod
     !! deviation 1 given seed.
     !!
     !! Notes:
-    !!   - gaussian deviate inpsired from gasdev (Num Rec 1992, chap 7.3),
+    !!   - Gaussian deviate inpsired from gasdev (Num Rec 1992, chap 7.3),
     !!     the only difference is the use of RAN2 instead of RAN1
+    !!   - Seed should be negative to initialise.
     !!
     !! Variables:
     !!   - idum: Seed.
@@ -189,6 +190,13 @@ module s2_distn_mod
     !! Notes: 
     !!   - uniform deviate (Num rec 1992, chap 7.1), original routine
     !!     said to be 'perfect' ...
+    !!  - Long period (> 2 × 1018) random number generator of L’Ecuyer
+    !!    with Bays-Durham shuffle and added safeguards. Returns a
+    !!    uniform random deviate between 0.0 and 1.0 (exclusive of the
+    !!    endpoint values). Call with idum a negative integer to
+    !!    initialize; thereafter, do not alter idum between successive
+    !!    deviates in a sequence. RNMX should approximate the largest
+    !!    floating value that is less than 1.
     !!
     !! Variables:
     !!   - idum: Seed.
@@ -197,7 +205,7 @@ module s2_distn_mod
     !! @version 0.1 August 2004
     ! 
     ! Revisions:
-    !   March 2004 - Copied from Mike Hobson
+    !   March 2004 - Copied from Mike Hobson 
     !--------------------------------------------------------------------------
 
     function ran2(idum)
