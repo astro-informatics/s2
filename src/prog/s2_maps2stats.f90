@@ -1,21 +1,15 @@
 !------------------------------------------------------------------------------
 ! s2_maps2stats
 !
-
-
-
-!! Compute the axisymmetric convolution of a sky with a kernel in
-!! harmonic space.
+!! Compute mean and standard deviation maps from a set of maps.
 !!
 !! Usage: 
 !!   - [-help]: Display usage information.
-!!   - [-inp filename_in]: Name of file containing input sky.
-!!   - [-inp filename_in]: Name of file containing convolution kernel.
-!!   - [-out filename_out]: Name of output file for convolved sky.
-!!   - [-file_type_in file_type_in_str]: String specifying input file type.
-!!   - [-file_type_ker file_type_ker_str]: String specifying kernel file type.
-!!   - [-file_type_out file_type_out_str]: String specifying output file type.
-!!   - [-lmax lmax]: Maximum harmonic l to consider.
+!!   - [-inp filename_in]: Name of input file containing list of maps to 
+!!     consider.
+!!   - [-out_mean filename_mean]: Name of output file for mean map.
+!!   - [-out_std filename_std]: Name of output file for standard deviation
+!!      map.
 !
 !! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
 !
@@ -44,23 +38,6 @@ program s2_maps2stats
 
   integer ::  n = 0
 
-!!$  interface 
-!!$     function square(x) result(val)
-!!$       use s2_types_mod
-!!$       real(s2_sp), intent(in) :: x
-!!$       real(s2_sp) :: val
-!!$     end function square
-!!$  end interface
-!!$  interface 
-!!$     function square_root(x) result(val)
-!!$       use s2_types_mod
-!!$       real(s2_sp), intent(in) :: x
-!!$       real(s2_sp) :: val
-!!$     end function square_root
-!!$  end interface
-
-
-  
   ! Parse input parameters.
   call parse_options()
 
