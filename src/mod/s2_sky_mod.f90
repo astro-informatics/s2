@@ -40,7 +40,7 @@ module s2_sky_mod
     s2_sky_der, s2_sky_der_discrete_phi, s2_sky_der_discrete_phi_fovop, &
     s2_sky_der_discrete_theta, s2_sky_der_discrete_theta_fovop, &
     s2_sky_der_discrete_grad, &
-    s2_sky_conv, s2_sky_conv_space, s2_sky_convpt_space, &
+    s2_sky_conv, s2_sky_axiconv, s2_sky_conv_space, s2_sky_convpt_space, &
     s2_sky_conv_space_fovop, s2_sky_convpt_space_weights, &
     s2_sky_offset, s2_sky_scale, s2_sky_fun, &
     s2_sky_add, s2_sky_add_alm, s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
@@ -2424,6 +2424,98 @@ module s2_sky_mod
       end if
          
     end subroutine s2_sky_conv
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_axiconv
+    !
+    !! Convolve a sky with an axisymmetric kernel through a harmonic
+    !! space product.
+    !!
+    !! Variables:
+    !!   - sky: Sky to compute convolution.
+    !!   - kernel: Convolution kernel.
+    !!   - compute_map: Optional logical specifying whether to compute
+    !!     map of the output convolved sky.
+    !!   - conv: Initialised sky that is the convolution of the input
+    !!     sky and the convolution kernel (must be freed by calling routine).
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   December 2011 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+
+    function s2_sky_axiconv(sky, kernel, compute_map) result(conv)
+
+      type(s2_sky), intent(in) :: sky, kernel
+      logical, intent(in), optional :: compute_map
+      type(s2_sky) :: conv
+
+      integer :: l, m, fail = 0
+      integer :: lmax, lmax_ker
+      complex(s2_spc), allocatable :: sky_alm(:,:)
+      complex(s2_spc), allocatable :: kernel_alm(:,:)
+      complex(s2_spc), allocatable :: conv_alm(:,:)
+
+
+      ! Check objects initialised.
+      if((.not. sky%init) .or. (.not. kernel%init)) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_axiconv')
+      end if 
+
+      ! Check alms computed.
+      ! Must already be computed since lmax and mmax may otherwise be unknown.
+      if((.not. sky%alm_status) .or. (.not. kernel%alm_status)) then
+         call s2_error(S2_ERROR_SKY_ALM_NOT_DEF, 's2_sky_axiconv')
+      end if
+
+      ! Check lmax consistent.
+      lmax = s2_sky_get_lmax(sky)
+      lmax_ker = s2_sky_get_lmax(kernel)
+      if (lmax_ker /= lmax) then
+         call s2_error(S2_ERROR_SKY_SIZE_INVALID, 's2_axiconv', &
+              comment_add='Inconsistent lmax for kernel')
+      end if
+
+      ! Get copies of alms.
+      allocate(sky_alm(0:lmax, 0:lmax), stat=fail)
+      allocate(kernel_alm(0:lmax, 0:lmax), stat=fail)
+      allocate(conv_alm(0:lmax, 0:lmax), stat=fail)
+      sky_alm(0:lmax, 0:lmax) = 0.0e0
+      kernel_alm(0:lmax, 0:lmax) = 0.0e0
+      conv_alm(0:lmax, 0:lmax) = 0.0e0
+      if(fail /= 0) then
+         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
+              's2_axiconv')
+      end if
+      call s2_sky_get_alm(sky, sky_alm)
+      call s2_sky_get_alm(kernel, kernel_alm)
+
+      ! Perform convolution.
+      do l = 0,lmax 
+         do m = 0,lmax
+            conv_alm(l,m) = sqrt(4e0*pi/real(2*l+1,s2_sp)) &
+                 * kernel_alm(l,0) * sky_alm(l,m)
+         end do
+      end do
+
+      ! Initialise convolved sky.
+      conv = s2_sky_init(conv_alm, lmax, lmax, &
+           s2_sky_get_nside(kernel), s2_sky_get_pix_scheme(sky))
+
+      ! Compute map if required for output.
+      if (present(compute_map)) then
+         if (compute_map) call s2_sky_compute_map(conv)
+      end if
+
+      ! Free memory.
+      deallocate(sky_alm)
+      deallocate(kernel_alm)
+      deallocate(conv_alm)
+
+    end function s2_sky_axiconv
 
 
     !--------------------------------------------------------------------------

@@ -44,11 +44,7 @@ program s2_axiconv
   type(s2_sky) :: kernel
   type(s2_sky) :: sky_out
   integer :: lmax, lmax_sky, lmax_ker
-  integer :: l, m, fail = 0
-
-  complex(s2_spc), allocatable :: sky_in_alm(:,:)
-  complex(s2_spc), allocatable :: kernel_alm(:,:)
-  complex(s2_spc), allocatable :: sky_out_alm(:,:)
+  logical :: compute_map
 
   ! Parse input parameters.
   call parse_options()
@@ -117,37 +113,14 @@ program s2_axiconv
      call s2_sky_compute_alm(kernel, lmax, lmax)
   end if
 
-  ! Get copies of alms.
-  allocate(sky_in_alm(0:lmax, 0:lmax), stat=fail)
-  allocate(kernel_alm(0:lmax, 0:lmax), stat=fail)
-  allocate(sky_out_alm(0:lmax, 0:lmax), stat=fail)
-  sky_in_alm(0:lmax, 0:lmax) = 0.0e0
-  kernel_alm(0:lmax, 0:lmax) = 0.0e0
-  sky_out_alm(0:lmax, 0:lmax) = 0.0e0
-  if(fail /= 0) then
-     call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
-          's2_axiconv')
-  end if
-  call s2_sky_get_alm(sky_in, sky_in_alm)
-  call s2_sky_get_alm(kernel, kernel_alm)
-
   ! Perform convolution.
-  do l = 0,lmax 
-     do m = 0,lmax
-        sky_out_alm(l,m) = sqrt(4e0*pi/real(2*l+1,s2_sp)) &
-             * kernel_alm(l,0) * sky_in_alm(l,m)
-     end do
-  end do
-
-  ! Initialise convolved sky.
-  sky_out = s2_sky_init(sky_out_alm, lmax, lmax, &
-       s2_sky_get_nside(kernel), s2_sky_get_pix_scheme(sky_in))
-
-  ! Compute map if required for output.
   if (file_type_out == S2_SKY_FILE_TYPE_MAP) then
-     call s2_sky_compute_map(sky_out)
-  end if
-  
+     compute_map = .true.
+  else
+     compute_map = .false.
+  end if 
+  sky_out = s2_sky_axiconv(sky_in, kernel, compute_map)
+
   ! Save output file.
   call s2_sky_write_file(sky_out, filename_out, file_type_out)
 
@@ -155,9 +128,6 @@ program s2_axiconv
   call s2_sky_free(sky_in)
   call s2_sky_free(kernel)
   call s2_sky_free(sky_out)
-  deallocate(sky_in_alm)
-  deallocate(kernel_alm)
-  deallocate(sky_out_alm)
 
 
  !----------------------------------------------------------------------------
