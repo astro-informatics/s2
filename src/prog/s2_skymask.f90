@@ -31,10 +31,11 @@ program s2_skymask
   use s2_types_mod
   use s2_sky_mod
   use s2_error_mod
+  use healpix_types, only: HPX_SBADVAL
 
   implicit none
 
-  real(s2_sp), parameter :: FITS_DISPLAY_GREY_MAGIC_NUMBER = -1.6375e30
+  real(s2_sp), parameter :: FITS_DISPLAY_GREY_MAGIC_NUMBER = HPX_SBADVAL !-1.6375e30
   real(s2_sp), parameter :: ZERO_TOL = 1e-5
 
   character(len=*), parameter ::  MAP_FILE = 'map'
