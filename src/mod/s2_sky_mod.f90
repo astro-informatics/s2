@@ -44,13 +44,11 @@ module s2_sky_mod
     s2_sky_conv_space_fovop, s2_sky_convpt_space_weights, &
     s2_sky_offset, s2_sky_scale, s2_sky_fun, &
     s2_sky_add, s2_sky_add_alm, s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
-    s2_sky_error_twonorm, s2_sky_rms, & ! s2_sky_error_onenorm, s2_sky_error_pnorm, &
-    s2_sky_dilate, &
-    s2_sky_rotate, s2_sky_rotate_alm, &
+    s2_sky_thres_peaks, &
+    s2_sky_error_twonorm, s2_sky_rms, & 
+    s2_sky_dilate, s2_sky_rotate, s2_sky_rotate_alm, &
     s2_sky_power_map, s2_sky_power_alm, &
-    s2_sky_azimuthal_bl, &
-    s2_sky_admiss, &
-    s2_sky_admiss_dil, s2_sky_fov, &
+    s2_sky_azimuthal_bl, s2_sky_admiss,  s2_sky_admiss_dil, s2_sky_fov, &
     s2_sky_extract_ab, s2_sky_extract_ab_fssht, &
     s2_sky_downsample, s2_sky_upsample, &
     s2_sky_draw_dot, &
@@ -3482,6 +3480,147 @@ module s2_sky_mod
       end if
 
     end subroutine s2_sky_thres_abs
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_thres_peaks
+    !
+    !! Find local peak positions in thresholded sky.
+    !!
+    !! Notes:
+    !!  - Output arrays must be freed by calling routine.
+    !!
+    !! Variables:
+    !!  - sky: Thresholded sky.
+    !!  - peak_radius: Predicted radius of peak region (in radians).
+    !!    When a peak is found all pixels within the radisu
+    !!    peak_size_theta are zeroed.
+    !!  - ncetres: Number of centres found.
+    !!  - cetres_theta: Theta position of centres found.
+    !!  - cetres_phi: Phi position of centres found.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   December 2012 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_thres_peaks(sky, peak_radius, &
+         ncentres, centres_theta, centres_phi)
+
+      use pix_tools, only: query_disc, pix2ang_ring, pix2ang_nest
+
+      type(s2_sky), intent(in) :: sky
+      real(s2_dp), intent(in) :: peak_radius
+      integer, intent(out) :: ncentres
+      real(s2_dp), intent(out), allocatable :: centres_theta(:)
+      real(s2_dp), intent(out), allocatable :: centres_phi(:)
+
+      real(s2_sp), parameter :: TOLERANCE = 1e-10
+      integer :: npix, nside, pix_scheme, ipix(1:1)
+      integer :: nest, idisc, ndisc
+      integer, allocatable :: disc_ipix(:)
+      integer :: fail = 0
+      real(s2_sp), allocatable :: map(:)
+      real(s2_dp) :: theta, phi
+      real(s2_sp) :: mval
+      type(s2_vect) :: vec0
+      real(s2_sp) :: x0_sp(1:3)
+      real(s2_dp) :: x0_dp(1:3)
+      real(s2_dp), allocatable :: theta_buf(:), phi_buf(:)
+      integer, parameter :: NBUFFER = 500
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_thres_peaks')
+      end if 
+
+      ! Copy map since we will need to alter it.
+      npix = sky%npix
+      nside = sky%nside
+      pix_scheme = sky%pix_scheme
+      allocate(map(0:npix-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_thres_peaks')
+      end if
+      map(0:npix-1) = sky%map(0:npix-1)
+
+      ! Set pixel scheme for query disc.
+      if(pix_scheme == S2_SKY_RING) then
+         nest = 0
+      else if(pix_scheme == S2_SKY_NEST) then
+         nest = 1
+      else
+         call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_thres_peaks')
+      end if
+
+      ! Allocate buffer to store peak locations.
+      allocate(theta_buf(0:NBUFFER-1), stat=fail)
+      allocate(phi_buf(0:NBUFFER-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_thres_peaks')
+      end if
+
+      ! Find local peaks.
+      ncentres = 0
+      do
+         
+         ! Check whether any more peaks.
+         mval = maxval(map(0:npix-1))
+         if (abs(mval) < TOLERANCE) exit
+
+         ! Find peak pixel index.
+         ipix = maxloc(map(0:npix-1))
+
+         ! Convert pixel index to angular coordinates theta and phi.
+         if(pix_scheme == S2_SKY_RING) then
+            call pix2ang_ring(nside, ipix(1), theta, phi)
+         else if(pix_scheme == S2_SKY_NEST) then
+            call pix2ang_nest(nside, ipix(1), theta, phi)
+         else
+            call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_thres_peaks')
+         end if
+
+         ! Save position in buffers.
+         if (ncentres + 1 > NBUFFER) then
+            call s2_error(S2_ERROR_MEM_OUT_OF_BOUNDS, 's2_sky_thres_peaks', &
+                 comment_add='Exceed buffer size.')
+         end if
+         theta_buf(ncentres) = theta
+         phi_buf(ncentres) = phi
+         ncentres = ncentres + 1
+
+         ! Compute cartesial coordinates of (theta,phi).
+         vec0 = s2_vect_init(1.0, real(theta,s2_sp), real(phi,s2_sp))
+         call s2_vect_convert(vec0, S2_VECT_TYPE_CART)
+         x0_sp = s2_vect_get_x(vec0)
+         x0_dp(1:3) = x0_sp(1:3)
+         call s2_vect_free(vec0)
+
+         ! Zero radius about peak position found.
+         call query_disc(nside, x0_dp, peak_radius, &
+              disc_ipix, ndisc, nest, inclusive=1)
+         do idisc = 0, ndisc-1
+            map(disc_ipix(idisc)) = 0.0
+         end do
+         deallocate(disc_ipix)
+
+      end do
+
+      ! Copy data from buffers.
+      allocate(centres_theta(0:ncentres-1), stat=fail)
+      allocate(centres_phi(0:ncentres-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_thres_peaks')
+      end if
+      centres_theta(0:ncentres-1) = theta_buf(0:ncentres-1)
+      centres_phi(0:ncentres-1) = phi_buf(0:ncentres-1)
+
+      ! Free memory.
+      deallocate(map)
+      deallocate(theta_buf, phi_buf)
+
+    end subroutine s2_sky_thres_peaks
 
 
     !--------------------------------------------------------------------------

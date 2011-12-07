@@ -32,7 +32,7 @@ module s2_error_mod
   ! Global variables
   !---------------------------------------
 
-  integer, parameter :: S2_ERROR_NUM = 35
+  integer, parameter :: S2_ERROR_NUM = 36
 
   integer, public, parameter :: &
     S2_ERROR_NONE = 0, &
@@ -40,36 +40,37 @@ module s2_error_mod
     S2_ERROR_NOT_INIT = 2, &
     S2_ERROR_INIT_FAIL = 3, &
     S2_ERROR_MEM_ALLOC_FAIL = 4, &
-    S2_ERROR_ARTH = 5, &
-    S2_ERROR_SKY_SIZE_WARNING = 6, &
-    S2_ERROR_SKY_SIZE_INVALID = 7, &
-    S2_ERROR_SKY_SIZE_NOT_DEF = 8, &
-    S2_ERROR_SKY_POL_DEF = 9, &
-    S2_ERROR_SKY_MAP_DEF = 10, &
-    S2_ERROR_SKY_MAP_NOT_DEF = 11, &
-    S2_ERROR_SKY_ALM_DEF = 12, &
-    S2_ERROR_SKY_ALM_NOT_DEF = 13, &
-    S2_ERROR_SKY_EXT_INVALID = 14, &
-    S2_ERROR_SKY_PIX_INVALID = 15, &
-    S2_ERROR_SKY_NON_CONFORM = 16, &
-    S2_ERROR_SKY_PIX_DIFF = 17, &
-    S2_ERROR_SKY_FTYPE_INVALID = 18, &
-    S2_ERROR_SKY_FILE_EXISTS = 19, &
-    S2_ERROR_SKY_FILE_INVALID = 20, &
-    S2_ERROR_SKY_FOV_METHOD_INVALID = 21, &
-    S2_ERROR_SKY_DER_TYPE_INVALID = 22, &
-    S2_ERROR_DISNT_BND_INVALID = 23, &
-    S2_ERROR_PL_LMAX_LOW = 24, &
-    S2_ERROR_PL_SIZE_INVALID = 25, &
-    S2_ERROR_PL_FILE_EXISTS = 26, &
-    S2_ERROR_PL_FILE_INVALID = 27, &
-    S2_ERROR_PL_PLOT_FAIL = 28, &
-    S2_ERROR_WNOISE_TYPE_INVALID = 29, &
-    S2_ERROR_VECT_TYPE_INVALID = 30, &
-    S2_ERROR_VECT_CART_DIM_INVALID = 31, &
-    S2_ERROR_YLM_ARG_INVALID = 32, &
-    S2_ERROR_PROJ_METHOD_INVALID = 33, &
-    S2_ERROR_PROJ_FIELD_INVALID = 34
+    S2_ERROR_MEM_OUT_OF_BOUNDS = 5, &
+    S2_ERROR_ARTH = 6, &
+    S2_ERROR_SKY_SIZE_WARNING = 7, &
+    S2_ERROR_SKY_SIZE_INVALID = 8, &
+    S2_ERROR_SKY_SIZE_NOT_DEF = 9, &
+    S2_ERROR_SKY_POL_DEF = 10, &
+    S2_ERROR_SKY_MAP_DEF = 11, &
+    S2_ERROR_SKY_MAP_NOT_DEF = 12, &
+    S2_ERROR_SKY_ALM_DEF = 13, &
+    S2_ERROR_SKY_ALM_NOT_DEF = 14, &
+    S2_ERROR_SKY_EXT_INVALID = 15, &
+    S2_ERROR_SKY_PIX_INVALID = 16, &
+    S2_ERROR_SKY_NON_CONFORM = 17, &
+    S2_ERROR_SKY_PIX_DIFF = 18, &
+    S2_ERROR_SKY_FTYPE_INVALID = 19, &
+    S2_ERROR_SKY_FILE_EXISTS = 20, &
+    S2_ERROR_SKY_FILE_INVALID = 21, &
+    S2_ERROR_SKY_FOV_METHOD_INVALID = 22, &
+    S2_ERROR_SKY_DER_TYPE_INVALID = 23, &
+    S2_ERROR_DISNT_BND_INVALID = 24, &
+    S2_ERROR_PL_LMAX_LOW = 25, &
+    S2_ERROR_PL_SIZE_INVALID = 26, &
+    S2_ERROR_PL_FILE_EXISTS = 27, &
+    S2_ERROR_PL_FILE_INVALID = 28, &
+    S2_ERROR_PL_PLOT_FAIL = 29, &
+    S2_ERROR_WNOISE_TYPE_INVALID = 30, &
+    S2_ERROR_VECT_TYPE_INVALID = 31, &
+    S2_ERROR_VECT_CART_DIM_INVALID = 32, &
+    S2_ERROR_YLM_ARG_INVALID = 33, &
+    S2_ERROR_PROJ_METHOD_INVALID = 34, &
+    S2_ERROR_PROJ_FIELD_INVALID = 35
 
 
   ! Each element of the error_comment array must have the same length, thus
@@ -84,6 +85,7 @@ module s2_error_mod
       'Object not initialised                                                   ', &
       'Object initialisation failed                                             ', &
       'Memory allocation failed                                                 ', &
+      'Memory out of bounds                                                     ', &
       'Arithmetic exception                                                     ', &
       'Warning: Sky sizes not in reccommended range (0<lmax<=3*nside, mmax=lmax)', &
       'Invalid sky sizes                                                        ', &
@@ -121,6 +123,7 @@ module s2_error_mod
     halt_default(S2_ERROR_NUM) = &
       (/ &
       .false., &
+      .true.,  &
       .true.,  &
       .true.,  &
       .true.,  &
