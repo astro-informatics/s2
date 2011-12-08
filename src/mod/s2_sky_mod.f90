@@ -3498,6 +3498,8 @@ module s2_sky_mod
     !!  - ncetres: Number of centres found.
     !!  - cetres_theta: Theta position of centres found.
     !!  - cetres_phi: Phi position of centres found.
+    !!  - min_peak_area: Minimum area (in steradians) of a peak (all
+    !!   peaks with area less than min_peak_area are discarded).
     !
     !! @author J. D. McEwen
     !
@@ -3506,7 +3508,7 @@ module s2_sky_mod
     !--------------------------------------------------------------------------
 
     subroutine s2_sky_thres_peaks(sky, peak_radius, &
-         ncentres, centres_theta, centres_phi)
+         ncentres, centres_theta, centres_phi, min_peak_area)
 
       use pix_tools, only: query_disc, pix2ang_ring, pix2ang_nest
 
@@ -3515,6 +3517,7 @@ module s2_sky_mod
       integer, intent(out) :: ncentres
       real(s2_dp), intent(out), allocatable :: centres_theta(:)
       real(s2_dp), intent(out), allocatable :: centres_phi(:)
+      real(s2_dp), intent(in), optional :: min_peak_area
 
       real(s2_sp), parameter :: TOLERANCE = 1e-10
       integer :: npix, nside, pix_scheme, ipix(1:1)
@@ -3529,6 +3532,8 @@ module s2_sky_mod
       real(s2_dp) :: x0_dp(1:3)
       real(s2_dp), allocatable :: theta_buf(:), phi_buf(:)
       integer, parameter :: NBUFFER = 500
+      integer :: area_pix
+      real(s2_dp) :: area
 
       ! Check object initialised.
       if(.not. sky%init) then
@@ -3597,9 +3602,23 @@ module s2_sky_mod
          x0_dp(1:3) = x0_sp(1:3)
          call s2_vect_free(vec0)
 
-         ! Zero radius about peak position found.
+         ! Find all pixels within peak_radius of peak.
          call query_disc(nside, x0_dp, peak_radius, &
               disc_ipix, ndisc, nest, inclusive=1)
+
+         ! Discard region if it's too small.
+         if(present(min_peak_area)) then
+            ! Compute area of peak.
+            area_pix = 0
+            do idisc = 0, ndisc-1
+               if (map(disc_ipix(idisc)) > 0.0) area_pix = area_pix + 1
+            end do
+            area = area_pix * 4.0 * PI / real(npix,s2_sp)
+            ! Discard current peak if region is too small.
+            if (area < min_peak_area) ncentres = ncentres - 1
+         end if
+
+         ! Zero radius about peak position found.
          do idisc = 0, ndisc-1
             map(disc_ipix(idisc)) = 0.0
          end do
