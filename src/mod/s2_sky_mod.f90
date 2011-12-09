@@ -3492,6 +3492,8 @@ module s2_sky_mod
     !!
     !! Variables:
     !!  - sky: Thresholded sky.
+    !!  - mask: Binary mask containing ones in the peak positions
+    !!    located (must be freed by calling routine).
     !!  - peak_radius: Predicted radius of peak region (in radians).
     !!    When a peak is found all pixels within the radisu
     !!    peak_size_theta are zeroed.
@@ -3507,13 +3509,14 @@ module s2_sky_mod
     !   December 2012 - Written by Jason McEwen
     !--------------------------------------------------------------------------
 
-    subroutine s2_sky_thres_peaks(sky, peak_radius, &
+    subroutine s2_sky_thres_peaks(sky, peak_radius, mask, &
          ncentres, centres_theta, centres_phi, min_peak_area)
 
       use pix_tools, only: query_disc, pix2ang_ring, pix2ang_nest
 
       type(s2_sky), intent(in) :: sky
       real(s2_dp), intent(in) :: peak_radius
+      type(s2_sky), intent(out) :: mask
       integer, intent(out) :: ncentres
       real(s2_dp), intent(out), allocatable :: centres_theta(:)
       real(s2_dp), intent(out), allocatable :: centres_phi(:)
@@ -3534,6 +3537,7 @@ module s2_sky_mod
       integer, parameter :: NBUFFER = 500
       integer :: area_pix
       real(s2_dp) :: area
+      logical :: discarded
 
       ! Check object initialised.
       if(.not. sky%init) then
@@ -3549,6 +3553,14 @@ module s2_sky_mod
         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_thres_peaks')
       end if
       map(0:npix-1) = sky%map(0:npix-1)
+
+      ! Initialise mask.
+      mask = s2_sky_init(sky)
+      mask%map(0:npix-1) = 0.0
+      if (mask%alm_status) then
+         deallocate(mask%alm)
+         mask%alm_status = .false.
+      end if      
 
       ! Set pixel scheme for query disc.
       if(pix_scheme == S2_SKY_RING) then
@@ -3607,6 +3619,7 @@ module s2_sky_mod
               disc_ipix, ndisc, nest, inclusive=1)
 
          ! Discard region if it's too small.
+         discarded = .false.
          if(present(min_peak_area)) then
             ! Compute area of peak.
             area_pix = 0
@@ -3615,12 +3628,16 @@ module s2_sky_mod
             end do
             area = area_pix * 4.0 * PI / real(npix,s2_sp)
             ! Discard current peak if region is too small.
-            if (area < min_peak_area) ncentres = ncentres - 1
+            if (area < min_peak_area) then
+               ncentres = ncentres - 1
+               discarded = .true.
+            end if
          end if
 
-         ! Zero radius about peak position found.
+         ! Zero radius about peak position found and update mask.
          do idisc = 0, ndisc-1
             map(disc_ipix(idisc)) = 0.0
+            if(.not. discarded) mask%map(disc_ipix(idisc)) = 1.0
          end do
          deallocate(disc_ipix)
 
