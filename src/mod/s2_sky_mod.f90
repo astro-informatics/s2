@@ -3571,9 +3571,10 @@ module s2_sky_mod
          call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_thres_peaks')
       end if
 
-      ! Allocate buffer to store peak locations.
+      ! Allocate buffers to store peak locations and disc pixels.
       allocate(theta_buf(0:NBUFFER-1), stat=fail)
       allocate(phi_buf(0:NBUFFER-1), stat=fail)
+      allocate(disc_ipix(0:npix-1), stat=fail)     
       if(fail /= 0) then
         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_thres_peaks')
       end if
@@ -3639,7 +3640,6 @@ module s2_sky_mod
             map(disc_ipix(idisc)) = 0.0
             if(.not. discarded) mask%map(disc_ipix(idisc)) = 1.0
          end do
-         deallocate(disc_ipix)
 
       end do
 
@@ -3655,6 +3655,7 @@ module s2_sky_mod
       ! Free memory.
       deallocate(map)
       deallocate(theta_buf, phi_buf)
+      deallocate(disc_ipix)
 
     end subroutine s2_sky_thres_peaks
 
