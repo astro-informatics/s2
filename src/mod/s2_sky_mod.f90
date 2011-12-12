@@ -44,7 +44,7 @@ module s2_sky_mod
     s2_sky_conv_space_fovop, s2_sky_convpt_space_weights, &
     s2_sky_offset, s2_sky_scale, s2_sky_fun, &
     s2_sky_add, s2_sky_add_alm, s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
-    s2_sky_thres_peaks, &
+    s2_sky_thres_peaks, s2_sky_region_max, &
     s2_sky_error_twonorm, s2_sky_rms, & 
     s2_sky_dilate, s2_sky_rotate, s2_sky_rotate_alm, &
     s2_sky_power_map, s2_sky_power_alm, &
@@ -3544,6 +3544,12 @@ module s2_sky_mod
         call s2_error(S2_ERROR_NOT_INIT, 's2_sky_thres_peaks')
       end if 
 
+      ! Check map defined.
+      if(.not. sky%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_thres_peaks')
+         return
+      end if
+
       ! Copy map since we will need to alter it.
       npix = sky%npix
       nside = sky%nside
@@ -3658,6 +3664,101 @@ module s2_sky_mod
       deallocate(disc_ipix)
 
     end subroutine s2_sky_thres_peaks
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_region_max
+    !
+    !! Find amplitude due to maximum absolute amplitude of a sky within a disc
+    !! specified by its centre and radius.
+    !!
+    !! Variables:
+    !!  - sky: Sky to find region max of.
+    !!  - peak_radius: Radius of disc to search for peak within (in radians).
+    !!  - theta: Theta centre of disc to search for peak within (in radians).
+    !!  - phi: Phi centre of disc to search for peak within (in radians).
+    !!  - max_amp: Amplitude of maximum absolute amplitude found (i.e. can
+    !!    be negaitve if the maximum absolute amplitude is due to a
+    !!    negative amplitude).
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   December 2012 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    function s2_sky_region_max(sky, peak_radius, theta, phi) result(max_amp)
+
+      use pix_tools, only: query_disc
+
+      type(s2_sky), intent(in) :: sky
+      real(s2_dp), intent(in) :: peak_radius
+      real(s2_dp), intent(in) :: theta
+      real(s2_dp), intent(in) :: phi
+      real(s2_sp) :: max_amp
+
+      logical, allocatable :: mask(:)
+      integer :: fail=0
+      integer :: nest, idisc, ndisc
+      integer, allocatable :: disc_ipix(:)
+      type(s2_vect) :: vec0
+      real(s2_sp) :: x0_sp(1:3)
+      real(s2_dp) :: x0_dp(1:3)
+      integer :: imax(1:1)
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_region_max')
+      end if 
+
+      ! Check map defined.
+      if(.not. sky%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_region_max')
+         return
+      end if
+
+      ! Allocate memory for mask and disc pixels.
+      allocate(mask(0:sky%npix-1), stat=fail)
+      allocate(disc_ipix(0:sky%npix-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_region_max')
+      end if
+      mask(0:sky%npix-1) = .false.
+
+      ! Set pixel scheme for query disc.
+      if(sky%pix_scheme == S2_SKY_RING) then
+         nest = 0
+      else if(sky%pix_scheme == S2_SKY_NEST) then
+         nest = 1
+      else
+         call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_region_max')
+      end if
+
+      ! Compute cartesial coordinates of (theta,phi).
+      vec0 = s2_vect_init(1.0, real(theta,s2_sp), real(phi,s2_sp))
+      call s2_vect_convert(vec0, S2_VECT_TYPE_CART)
+      x0_sp = s2_vect_get_x(vec0)
+      x0_dp(1:3) = x0_sp(1:3)
+      call s2_vect_free(vec0)
+
+      ! Find all pixels within peak_radius of peak.
+      call query_disc(sky%nside, x0_dp, peak_radius, &
+           disc_ipix, ndisc, nest, inclusive=1)
+
+      ! Construct mask.
+      do idisc = 0, ndisc-1
+         mask(disc_ipix(idisc)) = .true.
+      end do
+
+      ! Find maximum amplitude within mask.
+      imax = maxloc(abs(sky%map(0:sky%npix-1)), mask=mask(0:sky%npix-1))
+      max_amp = sky%map(imax(1))
+
+      ! Free memory.
+      deallocate(mask)
+      deallocate(disc_ipix)
+
+    end function s2_sky_region_max
 
 
     !--------------------------------------------------------------------------
