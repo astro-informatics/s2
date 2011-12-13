@@ -3593,8 +3593,9 @@ module s2_sky_mod
          mval = maxval(map(0:npix-1))
          if (abs(mval) < TOLERANCE) exit
 
-         ! Find peak pixel index.
+         ! Find peak pixel index (maxloc gives 1 based index so adjust).
          ipix = maxloc(map(0:npix-1))
+         ipix = ipix - 1
 
          ! Convert pixel index to angular coordinates theta and phi.
          if(pix_scheme == S2_SKY_RING) then
@@ -3751,8 +3752,7 @@ module s2_sky_mod
       end do
 
       ! Find maximum amplitude within mask.
-      imax = maxloc(abs(sky%map(0:sky%npix-1)), mask=mask(0:sky%npix-1))
-      max_amp = sky%map(imax(1))
+      max_amp = maxval(abs(sky%map(0:sky%npix-1)), mask=mask(0:sky%npix-1))
 
       ! Free memory.
       deallocate(mask)
