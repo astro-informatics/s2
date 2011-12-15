@@ -3500,6 +3500,7 @@ module s2_sky_mod
     !!  - ncetres: Number of centres found.
     !!  - cetres_theta: Theta position of centres found.
     !!  - cetres_phi: Phi position of centres found.
+    !!  - cetres_radius: Approximate radius of peak regions found.
     !!  - min_peak_area: Minimum area (in steradians) of a peak (all
     !!   peaks with area less than min_peak_area are discarded).
     !
@@ -3510,7 +3511,7 @@ module s2_sky_mod
     !--------------------------------------------------------------------------
 
     subroutine s2_sky_thres_peaks(sky, peak_radius, mask, &
-         ncentres, centres_theta, centres_phi, min_peak_area)
+         ncentres, centres_theta, centres_phi, centres_radius, min_peak_area)
 
       use pix_tools, only: query_disc, pix2ang_ring, pix2ang_nest
 
@@ -3520,20 +3521,22 @@ module s2_sky_mod
       integer, intent(out) :: ncentres
       real(s2_dp), intent(out), allocatable :: centres_theta(:)
       real(s2_dp), intent(out), allocatable :: centres_phi(:)
+      real(s2_dp), intent(out), allocatable :: centres_radius(:)      
       real(s2_dp), intent(in), optional :: min_peak_area
 
       real(s2_sp), parameter :: TOLERANCE = 1e-10
       integer :: npix, nside, pix_scheme, ipix(1:1)
-      integer :: nest, idisc, ndisc
-      integer, allocatable :: disc_ipix(:)
+      integer :: nest, idisc, ndisc, ireg, nreg, ireg2
+      integer, allocatable :: disc_ipix(:), region_ipix(:)
       integer :: fail = 0
       real(s2_sp), allocatable :: map(:)
       real(s2_dp) :: theta, phi
+      real(s2_dp) :: theta_reg, phi_reg, theta_reg2, phi_reg2, dot, ang_sep
       real(s2_sp) :: mval
-      type(s2_vect) :: vec0
+      type(s2_vect) :: vec0, vec1
       real(s2_sp) :: x0_sp(1:3)
       real(s2_dp) :: x0_dp(1:3)
-      real(s2_dp), allocatable :: theta_buf(:), phi_buf(:)
+      real(s2_dp), allocatable :: theta_buf(:), phi_buf(:), radius_buf(:)
       integer, parameter :: NBUFFER = 500
       integer :: area_pix
       real(s2_dp) :: area
@@ -3580,7 +3583,9 @@ module s2_sky_mod
       ! Allocate buffers to store peak locations and disc pixels.
       allocate(theta_buf(0:NBUFFER-1), stat=fail)
       allocate(phi_buf(0:NBUFFER-1), stat=fail)
+      allocate(radius_buf(0:NBUFFER-1), stat=fail)
       allocate(disc_ipix(0:npix-1), stat=fail)     
+      allocate(region_ipix(0:npix-1), stat=fail)
       if(fail /= 0) then
         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_thres_peaks')
       end if
@@ -3642,6 +3647,69 @@ module s2_sky_mod
             end if
          end if
 
+         ! Estimate size of region.
+         if (.not. discarded) then 
+
+            ! Find pixels within region.
+            nreg = 0
+            do idisc = 0, ndisc-1
+               if (map(disc_ipix(idisc)) > 0.0) then
+                  region_ipix(nreg) = disc_ipix(idisc)
+                  nreg = nreg + 1
+               end if
+            end do
+
+            ! Compute largest distance between two pixels in the region.
+            radius_buf(ncentres-1) = 0.0
+            do ireg = 0, nreg-1
+
+               ! Compute position of first pixel.
+               if(pix_scheme == S2_SKY_RING) then
+                  call pix2ang_ring(nside, region_ipix(ireg), &
+                       theta_reg, phi_reg)
+               else if(pix_scheme == S2_SKY_NEST) then
+                  call pix2ang_nest(nside, region_ipix(ireg), &
+                       theta_reg, phi_reg)
+               else
+                  call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_thres_peaks')
+               end if
+               vec0 = s2_vect_init(1.0, &
+                    real(theta_reg,s2_sp), real(phi_reg,s2_sp))                 
+
+               do ireg2 = ireg+1, nreg-1
+
+                  ! Compute position of second pixel.
+                  if(pix_scheme == S2_SKY_RING) then
+                     call pix2ang_ring(nside, region_ipix(ireg2), &
+                          theta_reg2, phi_reg2)
+                  else if(pix_scheme == S2_SKY_NEST) then
+                     call pix2ang_nest(nside, region_ipix(ireg2), &
+                          theta_reg2, phi_reg2)
+                  else
+                     call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_thres_peaks')
+                  end if
+                  vec1 = s2_vect_init(1.0, &
+                       real(theta_reg2,s2_sp), real(phi_reg2,s2_sp))
+
+                  ! Compute distance between pixels.
+                  dot = s2_vect_dot(vec0, vec1)         
+                  if (dot > 1d0) dot = 1d0 
+                  if (dot < -1d0) dot = -1d0 
+                  ang_sep = acos(dot)                  
+
+                  ! Update maximum distance between pixels.
+                  if (ang_sep > radius_buf(ncentres-1)) then
+                     radius_buf(ncentres-1) = ang_sep
+                  end if
+
+                  call s2_vect_free(vec1)
+               end do
+               call s2_vect_free(vec0)
+            end do
+            radius_buf(ncentres-1) = radius_buf(ncentres-1) / 2.0
+
+         end if
+
          ! Zero radius about peak position found and update mask.
          do idisc = 0, ndisc-1
             map(disc_ipix(idisc)) = 0.0
@@ -3653,16 +3721,18 @@ module s2_sky_mod
       ! Copy data from buffers.
       allocate(centres_theta(0:ncentres-1), stat=fail)
       allocate(centres_phi(0:ncentres-1), stat=fail)
+      allocate(centres_radius(0:ncentres-1), stat=fail)
       if(fail /= 0) then
         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_thres_peaks')
       end if
       centres_theta(0:ncentres-1) = theta_buf(0:ncentres-1)
       centres_phi(0:ncentres-1) = phi_buf(0:ncentres-1)
+      centres_radius(0:ncentres-1) = radius_buf(0:ncentres-1)
 
       ! Free memory.
       deallocate(map)
-      deallocate(theta_buf, phi_buf)
-      deallocate(disc_ipix)
+      deallocate(theta_buf, phi_buf, radius_buf)
+      deallocate(disc_ipix, region_ipix)
 
     end subroutine s2_sky_thres_peaks
 
@@ -3670,7 +3740,7 @@ module s2_sky_mod
     !--------------------------------------------------------------------------
     ! s2_sky_region_max
     !
-    !! Find amplitude due to maximum absolute amplitude of a sky within a disc
+    !! Find maximum absolute amplitude of a sky within a disc
     !! specified by its centre and radius.
     !!
     !! Variables:
