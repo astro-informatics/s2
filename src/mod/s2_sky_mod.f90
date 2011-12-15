@@ -3823,7 +3823,7 @@ module s2_sky_mod
 
       ! Find maximum amplitude within mask.
       imax = maxloc(abs(sky%map(0:sky%npix-1)), mask=mask(0:sky%npix-1))
-      max_amp = sky%map(imax(1)-1)
+      max_amp = sky%map(imax(1)-1) 
 
       ! Free memory.
       deallocate(mask)
