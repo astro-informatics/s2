@@ -21,7 +21,8 @@ ifeq ($(FC),f95)
   OPTF95 = -w=x95
 endif
 
-OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5 -m64 -O3 -DS2_VERSION=\"1.0b2\" -DS2_BUILD=\"`svnversion -n .`\" 
+OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5 -m64 \
+      -O3 -DS2_VERSION=\"1.0b2\" -DS2_BUILD=\"`svnversion -n .`\" 
 #OPT = $(OPTPGPLOT) $(OPTF95) -DMAKE_COADDED_DATA_MAP -DWMAP3 -DDEBUG
 
 
@@ -77,7 +78,7 @@ ifeq ($(FC),f95)
 else ifeq ($(FC),g95)
   PPFLAGS = -cpp $(OPT)
 else ifeq ($(FC),gfortran)
-  PPFLAGS = -x f95-cpp-input $(OPT)
+  PPFLAGS = -cpp $(OPT)
 endif
 
 
