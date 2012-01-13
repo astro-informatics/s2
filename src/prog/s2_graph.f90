@@ -19,25 +19,29 @@ program s2_graph
 
   character(len=S2_STRING_LEN) :: filename_mask, filename_out
   type(s2_sky) :: mask
+  type(s2_graph) :: graph
   logical :: mask_present = .false.
-  integer :: nside = 32
-  integer :: pix_scheme = S2_SKY_NEST
-
+  integer :: nside = 16
+  
   ! Parse input parameters.
   call parse_options()
 
-  ! Load mask.
-  if (mask_present) mask = s2_sky_init(filename_mask, S2_SKY_FILE_TYPE_MAP)
+  ! Construct graph.
+  if (mask_present) then
+     mask = s2_sky_init(filename_mask, S2_SKY_FILE_TYPE_MAP)
+     !call s2_graph_init(nside, mask)
+  else
+     !call s2_graph_init(nside)
+  end if
+
+  ! Save graph.
 
 
-
-
-  write(*,*) 'Build graph representation of healpix map...'
-
-  
-
+  write(*,*) 'CRAXY_NUMBER ', CRAXY_NUMBER
+!  write(*,*) 'CRAXY_NUMBER ', S2_SKY_DER_TYPE_GRAD
   ! Free memory.
   if (mask_present) call s2_sky_free(mask)
+  !call s2_graph_free(graph)
 
 
  !----------------------------------------------------------------------------
@@ -85,7 +89,6 @@ program s2_graph
   
           case ('-help')
             write(*,'(a)') 'Usage: s2_graph [-nside nside]'
-            write(*,'(a)') '                [-pix_scheme pix_scheme]'
             write(*,'(a)') '                [-mask filename_mask (optional)]'
             write(*,'(a)') '                [-out filename_out]'
             stop
@@ -93,9 +96,6 @@ program s2_graph
           case ('-nside')
             read(arg,*) nside
 
-          case ('-pix_scheme')
-            read(arg,*) pix_scheme
-          
           case ('-mask')
             filename_mask = trim(arg)
             mask_present = .true.

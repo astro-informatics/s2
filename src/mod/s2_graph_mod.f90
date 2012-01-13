@@ -43,7 +43,7 @@ module s2_graph_mod
   !---------------------------------------
 
   ! No global variables.
-
+  integer, public, parameter :: CRAXY_NUMBER = 3
 
   !---------------------------------------
   ! Data types
@@ -53,7 +53,7 @@ module s2_graph_mod
     private
     logical :: init = .false.
     integer :: nside = 0
-    integer :: pix_scheme = S2_SKY_RING
+    integer :: pix_scheme = S2_SKY_NEST
     integer :: nvertices = 0
     integer, allocatable :: ivertices(:)
     type(s2_vect), allocatable :: vertices(:)
@@ -77,16 +77,19 @@ module s2_graph_mod
     !! ...
     !--------------------------------------------------------------------------
 
-    function s2_graph_init(nside, pix_scheme, mask) result(graph)
+    function s2_graph_init(nside, mask) result(graph)
 
       use pix_tools, only: nside2npix
 
       integer, intent(in) :: nside
-      integer, intent(in) :: pix_scheme
-      type(s2_sky), intent(in), optional :: mask
+      type(s2_sky), intent(inout), optional :: mask
       type(s2_graph) :: graph
 
-      integer :: npix, ipix
+      integer :: npix, ipix, nneighbours, ineighbour
+      integer :: neighbours(0:7)      
+      real(s2_dp) :: theta, phi, theta_n, phi_n, dot, ang
+      type(s2_vect) :: vec, vec_n
+      integer :: fail = 0
 
       ! Check object not already initialised.
       if(graph%init) then
@@ -117,27 +120,61 @@ module s2_graph_mod
                  comment_add='Mask has invalid nside.')
          end if
 
-         ! Check pixelisation scheme.
-         if(pix_scheme /= s2_sky_get_pix_scheme(mask)) then
-            call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_graph_init', &
-                 comment_add='Mask has invalid pix_scheme.')
-         end if    
+         ! Check mask in nested pixelisation scheme.
+         call s2_sky_map_convert(mask, S2_SKY_NEST)
      
       end if
       npix = nside2npix(nside)
 
+      ! Allocate space for graph object.
+      allocate(graph%ivertices(0:npix-1), stat=fail)
+      allocate(graph%vertices(0:npix-1), stat=fail)
+      allocate(graph%adj(0:npix-1,0:npix-1), stat=fail)
+      allocate(graph%deg(0:npix-1), stat=fail)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_graph_init')
+      end if      
 
+      ! Initialise graph attributes.
+      graph%nside = nside
+      graph%nvertices = npix
 
+      ! Compute adjacency matrix.
+      do ipix = 0, npix-1
 
-      ! Construct graph adjacency and degree matrices...
-      
-      ! Use the healpix function neighbours_nest to find adjacent pixel positions.
+         ! Compute position of current pixel and save.
+         call pix2ang_nest(nside, ipix, theta, phi)
+         vec = s2_vect_init(1.0, real(theta,s2_sp), real(phi,s2_sp))
+         graph%ivertices(ipix) = ipix
+         graph%vertices(ipix) = s2_vect_init(vec)
 
+         ! Find neighbours.
+         call neighbour_nest(nside, ipix, neighbours(0:7), nneighbours)
 
+         ! Set adjacency matrix entries for all neighbours.
+         do ineighbour = 0, nneighbours-1
 
+            ! Compute position of neighbour.
+            call pix2ang_nest(nside, neighbours(ineighbour), theta_n, phi_n)
+            vec_n = s2_vect_init(1.0, real(theta_n,s2_sp), real(phi_n,s2_sp))
 
+            ! Compute anglar separation between pixels.
+            dot = s2_vect_dot(vec, vec_n)         
+            if (dot > 1d0) dot = 1d0  ! Remove numerical noise that could cause acos to fail.
+            if (dot < -1d0) dot = -1d0 
+            ang = acos(dot)
+            call s2_vect_free(vec_n)
 
+            ! Set adjacency matrix value.
+            graph%adj(ipix, neighbours(ineighbour)) = dot
+         end do
 
+         ! Compute diagonal degree matrix components.
+         graph%deg(ipix) = sum(graph%adj(ipix,0:npix-1))
+         
+         call s2_vect_free(vec)
+
+      end do
 
       ! Set as initialised.
       graph%init = .true.
@@ -172,7 +209,7 @@ module s2_graph_mod
       
       ! Reset attributes.
       graph%nside = 0
-      graph%pix_scheme = S2_SKY_RING
+      graph%pix_scheme = S2_SKY_NEST
       graph%nvertices = 0
       graph%mask_status = .false.
 
