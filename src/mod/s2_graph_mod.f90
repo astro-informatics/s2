@@ -43,7 +43,7 @@ module s2_graph_mod
   !---------------------------------------
 
   ! No global variables.
-  integer, public, parameter :: CRAXY_NUMBER = 3
+
 
   !---------------------------------------
   ! Data types
@@ -59,6 +59,8 @@ module s2_graph_mod
     type(s2_vect), allocatable :: vertices(:)
     real(s2_dp), allocatable :: adj(:,:)
     real(s2_dp), allocatable :: deg(:)
+    real(s2_dp), allocatable :: val(:)
+    logical :: val_status = .false.
     type(s2_sky) :: mask
     logical :: mask_status = .false.
   end type s2_graph
@@ -79,7 +81,7 @@ module s2_graph_mod
 
     function s2_graph_init(nside, mask) result(graph)
 
-      use pix_tools, only: nside2npix
+      use pix_tools, only: nside2npix, pix2ang_nest, neighbours_nest
 
       integer, intent(in) :: nside
       type(s2_sky), intent(inout), optional :: mask
@@ -149,7 +151,7 @@ module s2_graph_mod
          graph%vertices(ipix) = s2_vect_init(vec)
 
          ! Find neighbours.
-         call neighbour_nest(nside, ipix, neighbours(0:7), nneighbours)
+         call neighbours_nest(nside, ipix, neighbours(0:7), nneighbours)
 
          ! Set adjacency matrix entries for all neighbours.
          do ineighbour = 0, nneighbours-1
@@ -206,12 +208,14 @@ module s2_graph_mod
       if(allocated(graph%adj)) deallocate(graph%adj)
       if(allocated(graph%deg)) deallocate(graph%deg)
       if(graph%mask_status) call s2_sky_free(graph%mask)
+      if(graph%val_status) deallocate(graph%val)
       
       ! Reset attributes.
       graph%nside = 0
       graph%pix_scheme = S2_SKY_NEST
       graph%nvertices = 0
       graph%mask_status = .false.
+      graph%val_status = .false.
 
       graph%init = .false.
 

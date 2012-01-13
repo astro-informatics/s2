@@ -9,7 +9,7 @@
 !   December 2011 - Written by Jason McEwen and Athamos Stradis
 !------------------------------------------------------------------------------
 
-program s2_graph
+program s2_graphbuild
 
   use s2_types_mod
   use s2_sky_mod
@@ -29,19 +29,17 @@ program s2_graph
   ! Construct graph.
   if (mask_present) then
      mask = s2_sky_init(filename_mask, S2_SKY_FILE_TYPE_MAP)
-     !call s2_graph_init(nside, mask)
+     graph = s2_graph_init(nside, mask)
   else
-     !call s2_graph_init(nside)
+     graph = s2_graph_init(nside)
   end if
 
   ! Save graph.
 
 
-  write(*,*) 'CRAXY_NUMBER ', CRAXY_NUMBER
-!  write(*,*) 'CRAXY_NUMBER ', S2_SKY_DER_TYPE_GRAD
   ! Free memory.
   if (mask_present) call s2_sky_free(mask)
-  !call s2_graph_free(graph)
+  call s2_graph_free(graph)
 
 
  !----------------------------------------------------------------------------
@@ -88,9 +86,9 @@ program s2_graph
         select case (trim(opt))
   
           case ('-help')
-            write(*,'(a)') 'Usage: s2_graph [-nside nside]'
-            write(*,'(a)') '                [-mask filename_mask (optional)]'
-            write(*,'(a)') '                [-out filename_out]'
+            write(*,'(a)') 'Usage: s2_graphbuild [-nside nside]'
+            write(*,'(a)') '                     [-mask filename_mask (optional)]'
+            write(*,'(a)') '                     [-out filename_out]'
             stop
 
           case ('-nside')
@@ -112,4 +110,4 @@ program s2_graph
     end subroutine parse_options
 
 
-end program s2_graph
+end program s2_graphbuild
