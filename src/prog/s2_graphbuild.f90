@@ -49,7 +49,7 @@ program s2_graphbuild
 
      ! Extract values.
      sky = s2_sky_init(filename_map, S2_SKY_FILE_TYPE_MAP)
-     gvals = s2_graph_vals(graph, sky)
+     call s2_graph_vals(graph, sky, gvals)
 
      ! Save values.
      write(filename, '(a,a)') trim(filename_out_prefix), '_vals.dat'

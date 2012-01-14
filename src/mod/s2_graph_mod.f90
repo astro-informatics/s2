@@ -316,7 +316,7 @@ module s2_graph_mod
     !   January 2012 - Written by Jason McEwen
     !--------------------------------------------------------------------------
 
-    function s2_graph_vals(graph, sky) result(gvals)
+    subroutine s2_graph_vals(graph, sky, gvals)
 
       type(s2_graph), intent(in) :: graph
       type(s2_sky), intent(inout) :: sky
@@ -358,7 +358,7 @@ module s2_graph_mod
          gvals(v) = s2_sky_get_map_pix(sky, graph%ivertices(v))
       end do
 
-    end function s2_graph_vals
+    end subroutine s2_graph_vals
 
 
     !--------------------------------------------------------------------------
