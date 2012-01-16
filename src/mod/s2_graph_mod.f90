@@ -177,7 +177,7 @@ module s2_graph_mod
             call s2_vect_free(vec_n)
 
             ! Set adjacency matrix value.
-            graph%adj(ipix, neighbours(ineighbour)) = dot
+            graph%adj(ipix, neighbours(ineighbour)) = ang
          end do
 
          ! Compute diagonal degree matrix components.
