@@ -25,6 +25,20 @@ program s2_maps2stats
 
   implicit none
 
+  interface 
+     function square(x) result (val)      
+       use s2_types_mod
+       real(s2_sp), intent(in) :: x
+       real(s2_sp) :: val
+     end function square
+
+     function square_root(x) result (val)       
+       use s2_types_mod
+       real(s2_sp), intent(in) :: x
+       real(s2_sp) :: val
+     end function square_root
+  end interface
+
   character(len=S2_STRING_LEN) :: filename_in, filename_mean, filename_std
 
   type(s2_sky) :: sky
@@ -174,57 +188,58 @@ program s2_maps2stats
     end subroutine parse_options
 
 
-    !---------------------------------------------------------------------
-    ! square
-    !
-    !! Function to square a map pixel value.
-    !
-    !! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
-    !! @version 0.1 - December 2012
-    !
-    ! Revisions:
-    !   December 2012 - Written by Jason McEwen 
-    !---------------------------------------------------------------------
-
-    function square(x) result (val)
-
-      use s2_types_mod
-      
-      implicit none
-
-      real(s2_sp), intent(in) :: x
-      real(s2_sp) :: val
-
-      val = x * x
-
-    end function square
-
-
-    !---------------------------------------------------------------------
-    ! square_root
-    !
-    !! Function to square root a map pixel value.
-    !
-    !! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
-    !! @version 0.1 - December 2012
-    !
-    ! Revisions:
-    !   December 2012 - Written by Jason McEwen 
-    !---------------------------------------------------------------------
-
-    function square_root(x) result (val)
-
-      use s2_types_mod
-      
-      implicit none
-
-      real(s2_sp), intent(in) :: x
-      real(s2_sp) :: val
-
-      val = sqrt(x)
-
-    end function square_root
-
 
 end program s2_maps2stats
 
+
+
+!---------------------------------------------------------------------
+! square
+!
+!! Function to square a map pixel value.
+!
+!! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
+!! @version 0.1 - December 2012
+!
+! Revisions:
+!   December 2012 - Written by Jason McEwen 
+!---------------------------------------------------------------------
+
+function square(x) result (val)
+
+  use s2_types_mod
+
+  implicit none
+
+  real(s2_sp), intent(in) :: x
+  real(s2_sp) :: val
+
+  val = x * x
+
+end function square
+
+
+!---------------------------------------------------------------------
+! square_root
+!
+!! Function to square root a map pixel value.
+!
+!! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
+!! @version 0.1 - December 2012
+!
+! Revisions:
+!   December 2012 - Written by Jason McEwen 
+!---------------------------------------------------------------------
+
+function square_root(x) result (val)
+
+  use s2_types_mod
+
+  implicit none
+
+  real(s2_sp), intent(in) :: x
+  real(s2_sp) :: val
+
+  val = sqrt(x)
+
+end function square_root
