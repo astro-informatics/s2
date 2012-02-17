@@ -396,7 +396,7 @@ module s2_cmb_mod
 
       ! Convert map to from uK to mK.
 !write(*,*) 'WARNING: NO LONGER CONVERTING TO mK IN S2_CMB'
-      call s2_sky_scale(cmb%sky, 1.0e-3)
+!      call s2_sky_scale(cmb%sky, 1.0e-3)
 
     end subroutine s2_cmb_gen_sky
 
