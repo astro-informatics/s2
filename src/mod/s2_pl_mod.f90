@@ -220,7 +220,8 @@ module s2_pl_mod
       logical, intent(in), optional :: line_nos_in
       type(s2_pl) :: pl
 
-      integer :: l, ldum, fileid = 10, fail
+      integer :: l, fileid = 10, fail
+      real(s2_dp) :: ldum
       character(len=80) :: line
       logical, parameter :: DEFAULT_SCALE_STATUS = .false.
       logical :: scale
