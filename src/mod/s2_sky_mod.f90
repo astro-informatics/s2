@@ -3212,9 +3212,9 @@ module s2_sky_mod
       end if
 
       if(subtract_use) then
-         map_temp = a%map - b%map
+         map_temp(0:npix-1) = a%map(0:npix-1) - b%map(0:npix-1)
       else
-         map_temp = a%map + b%map
+         map_temp(0:npix-1) = a%map(0:npix-1) + b%map(0:npix-1)
       end if
 
       ! Initialise output sky with new map.
