@@ -111,6 +111,7 @@ program s2_maps2stats
   ! Compute standard deviation and save map.
   call  s2_sky_scale(mom2, 1.0/real(n-1,s2_sp))
   call s2_sky_fun(mean, square)
+  call  s2_sky_scale(mean, real(n,s2_sp)/real(n-1,s2_sp))
   std = s2_sky_add(mom2, mean, subtract=.true.)
   call s2_sky_fun(std, square_root)
   call s2_sky_write_file(std, filename_std, S2_SKY_FILE_TYPE_MAP)
