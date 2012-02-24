@@ -9,8 +9,8 @@ USEPGPLOT = no
 
 # ======== COMPILER ========
 
-FC      = nagfor
-#FC      = gfortran
+#FC      = nagfor
+FC      = gfortran
 #FC      = g95
 
 ifneq ($(USEPGPLOT),yes)
@@ -41,11 +41,11 @@ endif
 PROGDIR = ..
 
 HPIXDIR = $(PROGDIR)/Healpix
-HPIXLIB = $(HPIXDIR)/lib_nag
+HPIXLIB = $(HPIXDIR)/lib
 HPIXLIBNM= healpix
-HPIXINC = $(HPIXDIR)/include_nag
+HPIXINC = $(HPIXDIR)/include
 
-S2DIR  = $(PROGDIR)/s2_nag
+S2DIR  = $(PROGDIR)/s2
 S2LIB  = $(S2DIR)/lib
 S2LIBNM= s2
 S2INC  = $(S2DIR)/include
@@ -54,7 +54,7 @@ S2PROG = $(S2DIR)/src/prog
 S2BIN  = $(S2DIR)/bin
 S2DOC  = $(S2DIR)/doc
 
-CFITSIOLIB   = $(PROGDIR)/cfitsio_nag/lib
+CFITSIOLIB   = $(PROGDIR)/cfitsio/lib
 CFITSIOLIBNM = cfitsio
 
 PGPLOTLIB    = $(PROGDIR)/pgplot
