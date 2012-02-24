@@ -9,21 +9,31 @@ USEPGPLOT = no
 
 # ======== COMPILER ========
 
-FC      = gfortran
-#FC      = f95
+FC      = nagfor
+#FC      = gfortran
 #FC      = g95
 
 ifneq ($(USEPGPLOT),yes)
   OPTPGPLOT = -DNO_PGPLOT
 endif
 
-ifeq ($(FC),f95)
-  OPTF95 = -w=x95
+OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5 \
+      -O3 -DS2_VERSION=\"1.0b2\" -DS2_BUILD=\"`svnversion -n .`\" 
+#OPT += -DMAKE_COADDED_DATA_MAP -DWMAP3 -DDEBUG
+ifeq ($(FC),gfortran)
+  OPT += -m64
 endif
 
-OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5 -m64 \
-      -O3 -DS2_VERSION=\"1.0b2\" -DS2_BUILD=\"`svnversion -n .`\" 
-#OPT = $(OPTPGPLOT) $(OPTF95) -DMAKE_COADDED_DATA_MAP -DWMAP3 -DDEBUG
+
+# ======== PPFLAGS ========
+
+ifeq ($(FC),nagfor)
+  PPFLAGS = -fpp $(OPT)
+else ifeq ($(FC),g95)
+  PPFLAGS = -cpp $(OPT)
+else ifeq ($(FC),gfortran)
+  PPFLAGS = -cpp $(OPT)
+endif
 
 
 # ======== LINKS ========
@@ -31,11 +41,11 @@ OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5 -m64 \
 PROGDIR = ..
 
 HPIXDIR = $(PROGDIR)/Healpix
-HPIXLIB = $(HPIXDIR)/lib
+HPIXLIB = $(HPIXDIR)/lib_nag
 HPIXLIBNM= healpix
-HPIXINC = $(HPIXDIR)/include
+HPIXINC = $(HPIXDIR)/include_nag
 
-S2DIR  = $(PROGDIR)/s2
+S2DIR  = $(PROGDIR)/s2_nag
 S2LIB  = $(S2DIR)/lib
 S2LIBNM= s2
 S2INC  = $(S2DIR)/include
@@ -44,7 +54,7 @@ S2PROG = $(S2DIR)/src/prog
 S2BIN  = $(S2DIR)/bin
 S2DOC  = $(S2DIR)/doc
 
-CFITSIOLIB   = $(PROGDIR)/cfitsio/lib
+CFITSIOLIB   = $(PROGDIR)/cfitsio_nag/lib
 CFITSIOLIBNM = cfitsio
 
 PGPLOTLIB    = $(PROGDIR)/pgplot
@@ -69,17 +79,6 @@ LDFLAGS =  -L$(S2LIB) -l$(S2LIBNM) \
            -L$(HPIXLIB) -l$(HPIXLIBNM) \
            -L$(CFITSIOLIB) -l$(CFITSIOLIBNM) \
            $(LDFLAGSPGPLOT)
-
-
-# ======== PPFLAGS ========
-
-ifeq ($(FC),f95)
-  PPFLAGS = -fpp $(OPT)
-else ifeq ($(FC),g95)
-  PPFLAGS = -cpp $(OPT)
-else ifeq ($(FC),gfortran)
-  PPFLAGS = -cpp $(OPT)
-endif
 
 
 # ======== OBJECT FILES TO MAKE ========

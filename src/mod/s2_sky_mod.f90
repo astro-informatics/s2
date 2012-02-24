@@ -4712,8 +4712,8 @@ module s2_sky_mod
       use pix_tools, only: ang2pix_ring, ang2pix_nest
 
       type(s2_sky), intent(in) :: sky
-      real(s2_dp), intent(out) :: xtp(0:L-1,0:2*L-2)
       integer, intent(in) :: L
+      real(s2_dp), intent(out) :: xtp(0:L-1,0:2*L-2)
 
       integer :: itheta, iphi, ipix
       real(s2_dp) :: theta, phi
@@ -4726,13 +4726,13 @@ module s2_sky_mod
       do itheta = 0,L-1
 
          theta = pi*(2.*itheta+1)/real(2*L-1,s2_dp)
-         theta = mod(theta, PI)
+         theta = mod(theta, real(PI,s2_dp))
          if(theta>=3.1415926) theta = 3.1415926 ! Since theta include South Pole.
 
          do iphi = 0,2*L-2
 
             phi = 2*pi*iphi/real(2*L-1,s2_dp)
-            phi = mod(phi, 2*PI)
+            phi = mod(phi, real(2*PI,s2_dp))
 
             ! Compute index corresponding to theta (beta) and phi (alpha)
             ! angles.
@@ -4780,8 +4780,8 @@ module s2_sky_mod
       use pix_tools, only: ang2pix_ring, ang2pix_nest
 
       type(s2_sky), intent(in) :: sky
-      real(s2_dp), intent(out) :: xtp(0:2*B-1,0:2*B-2)
       integer, intent(in) :: B
+      real(s2_dp), intent(out) :: xtp(0:2*B-1,0:2*B-2)
 
       integer :: itheta, iphi, ipix
       real(s2_dp) :: theta, phi
@@ -4794,12 +4794,12 @@ module s2_sky_mod
       do itheta = 0,2*B-1
 
          theta = pi*(2*itheta+1)/real(4*B,s2_dp)
-         theta = mod(theta, PI)
+         theta = mod(theta, real(PI,s2_dp))
 
          do iphi = 0,2*B-2
 
             phi = 2*pi*iphi/real(2*B-1,s2_dp)
-            phi = mod(phi, 2*PI)
+            phi = mod(phi, real(2*PI,s2_dp))
 
             ! Compute index corresponding to theta (beta) and phi (alpha)
             ! angles.
@@ -5754,10 +5754,10 @@ module s2_sky_mod
          else
             theta = pi*(2*itheta+1)/real(4*B,s2_dp)
          end if
-         theta = mod(theta, PI)
+         theta = mod(theta, real(PI,s2_dp))
          do iphi = 0,2*B-2
             phi = 2*pi*iphi/real(2*B-1,s2_dp)
-            phi = mod(phi, 2*PI)
+            phi = mod(phi, real(2*PI,s2_dp))
             write(fileid,'(3e28.20)') theta, phi, xtp(itheta, iphi)
          end do
       end do
