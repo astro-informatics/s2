@@ -24,6 +24,9 @@ OPT = $(OPTPGPLOT) $(OPTF95) -DWMAP5 \
 ifeq ($(FC),gfortran)
   OPT += -m64
 endif
+ifeq ($(FC),gfortran44)
+  OPT += -m64
+endif
 
 
 # ======== PPFLAGS ========
@@ -35,6 +38,8 @@ else ifeq ($(FC),ifort)
 else ifeq ($(FC),g95)
   PPFLAGS = -cpp $(OPT)
 else ifeq ($(FC),gfortran)
+  PPFLAGS = -cpp $(OPT)
+else ifeq ($(FC),gfortran44)
   PPFLAGS = -cpp $(OPT)
 endif
 
