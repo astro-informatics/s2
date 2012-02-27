@@ -49,7 +49,7 @@ module s2_sky_mod
     s2_sky_dilate, s2_sky_rotate, s2_sky_rotate_alm, &
     s2_sky_power_map, s2_sky_power_alm, &
     s2_sky_azimuthal_bl, s2_sky_admiss,  s2_sky_admiss_dil, s2_sky_fov, &
-    s2_sky_extract_ab, s2_sky_extract_ab_fssht, &
+    s2_sky_extract_ab, s2_sky_extract_ab_fssht, s2_sky_extract_ab_s2dw, &
     s2_sky_downsample, s2_sky_upsample, &
     s2_sky_draw_dot, &
     s2_sky_write_map_file, s2_sky_write_matmap_file, &
