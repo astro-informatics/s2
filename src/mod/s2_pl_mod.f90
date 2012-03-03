@@ -493,7 +493,7 @@ module s2_pl_mod
 
       ! Compute spectrum values.
       do l = 0,lmax
-         pl%pl(l) = exp(-l*(l+1)*sigma2)
+         pl%pl(l) = exp(-l*(l+1)*sigma2 / 2.0)
       end do
 
       ! Set initialised.
