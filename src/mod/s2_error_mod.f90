@@ -32,7 +32,7 @@ module s2_error_mod
   ! Global variables
   !---------------------------------------
 
-  integer, parameter :: S2_ERROR_NUM = 36
+  integer, parameter :: S2_ERROR_NUM = 37
 
   integer, public, parameter :: &
     S2_ERROR_NONE = 0, &
@@ -59,18 +59,19 @@ module s2_error_mod
     S2_ERROR_SKY_FILE_INVALID = 21, &
     S2_ERROR_SKY_FOV_METHOD_INVALID = 22, &
     S2_ERROR_SKY_DER_TYPE_INVALID = 23, &
-    S2_ERROR_DISNT_BND_INVALID = 24, &
-    S2_ERROR_PL_LMAX_LOW = 25, &
-    S2_ERROR_PL_SIZE_INVALID = 26, &
-    S2_ERROR_PL_FILE_EXISTS = 27, &
-    S2_ERROR_PL_FILE_INVALID = 28, &
-    S2_ERROR_PL_PLOT_FAIL = 29, &
-    S2_ERROR_WNOISE_TYPE_INVALID = 30, &
-    S2_ERROR_VECT_TYPE_INVALID = 31, &
-    S2_ERROR_VECT_CART_DIM_INVALID = 32, &
-    S2_ERROR_YLM_ARG_INVALID = 33, &
-    S2_ERROR_PROJ_METHOD_INVALID = 34, &
-    S2_ERROR_PROJ_FIELD_INVALID = 35
+    S2_ERROR_SKY_ABGRID_TYPE_INVALID = 24, &
+    S2_ERROR_DISNT_BND_INVALID = 25, &
+    S2_ERROR_PL_LMAX_LOW = 26, &
+    S2_ERROR_PL_SIZE_INVALID = 27, &
+    S2_ERROR_PL_FILE_EXISTS = 28, &
+    S2_ERROR_PL_FILE_INVALID = 29, &
+    S2_ERROR_PL_PLOT_FAIL = 30, &
+    S2_ERROR_WNOISE_TYPE_INVALID = 31, &
+    S2_ERROR_VECT_TYPE_INVALID = 32, &
+    S2_ERROR_VECT_CART_DIM_INVALID = 33, &
+    S2_ERROR_YLM_ARG_INVALID = 34, &
+    S2_ERROR_PROJ_METHOD_INVALID = 35, &
+    S2_ERROR_PROJ_FIELD_INVALID = 36
 
 
   ! Each element of the error_comment array must have the same length, thus
@@ -104,6 +105,7 @@ module s2_error_mod
       'Full sky (map and alm) fits file invalid                                 ', &
       'Field-of-view method type invalid                                        ', &
       'Derivative type invalid                                                  ', &
+      'Grid type invalid                                                        ', &
       'Warning: Invalid bounds when sampling uniform distribution               ', &
       'Warning: Alm greater lmax than pl spectrum                               ', &
       'Invalid pl spectrum sizes                                                ', &
@@ -146,6 +148,7 @@ module s2_error_mod
       .true.,  &   
       .true.,  &   
       .true.,  &   
+      .true.,  &
       .false., &
       .false., &
       .true.,  &

@@ -137,6 +137,15 @@ module s2_sky_mod
   !! Gradient derivative type.
   integer, public, parameter :: S2_SKY_DER_TYPE_GRAD = 3
 
+  !! S2DW ECP grid type.
+  integer, public, parameter :: S2_SKY_ABGRID_TYPE_S2DW = 1
+
+  !! MW ECP grid type.
+  integer, public, parameter :: S2_SKY_ABGRID_TYPE_MW = 2
+
+  !! MWSS ECP grid type.
+  integer, public, parameter :: S2_SKY_ABGRID_TYPE_MWSS = 3
+
 
   !---------------------------------------
   ! Data types
@@ -4726,13 +4735,11 @@ module s2_sky_mod
       do itheta = 0,L-1
 
          theta = pi*(2.*itheta+1)/real(2*L-1,s2_dp)
-         theta = mod(theta, real(PI,s2_dp))
          if(theta>=3.1415926) theta = 3.1415926 ! Since theta include South Pole.
 
          do iphi = 0,2*L-2
 
             phi = 2*pi*iphi/real(2*L-1,s2_dp)
-            phi = mod(phi, real(2*PI,s2_dp))
 
             ! Compute index corresponding to theta (beta) and phi (alpha)
             ! angles.
@@ -4751,6 +4758,73 @@ module s2_sky_mod
       end do
 
     end subroutine s2_sky_extract_ab_fssht
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_extract_ab_mwss
+    !
+    !! Extra an ecp (equispaced) sampled theta-phi array over the sphere
+    !! for the MWSS grid used in the SSHT code.
+    !!
+    !! Notes:
+    !!   - No interpolation performed.
+    !!   - The size of xtp must already be specified and allocated.
+    !!
+    !! Variables:
+    !!   - sky: Sky to extract theta-phi array representation of.
+    !!   - xtp: The extracted discrete theta-phi data array corresponding
+    !!     to the given sky.
+    !  
+    !! @author J. D. McEwen
+    !! @version 0.1 - March 2012
+    !
+    ! Revisions:
+    !   March 2012 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    subroutine s2_sky_extract_ab_mwss(sky, xtp, L)
+
+      use pix_tools, only: ang2pix_ring, ang2pix_nest
+
+      type(s2_sky), intent(in) :: sky
+      integer, intent(in) :: L
+      real(s2_dp), intent(out) :: xtp(0:L,0:2*L-1)
+
+      integer :: itheta, iphi, ipix
+      real(s2_dp) :: theta, phi
+
+      ! Check object initialised.
+      if(.not. sky%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_extract_ab_mwss')
+      end if
+
+      do itheta = 0,L
+
+         theta = 2.0 * itheta * PI / real(2.0*L, s2_dp)
+         if(theta>=3.1415926) theta = 3.1415926 ! Since theta include South Pole.
+         if(theta<0.0) theta = 0.0 ! Since theta include North Pole.
+
+         do iphi = 0,2*L-1
+
+            phi = 2.0 * iphi * PI / real(2.0*L, s2_dp)
+
+            ! Compute index corresponding to theta (beta) and phi (alpha)
+            ! angles.
+            if(sky%pix_scheme == S2_SKY_RING) then
+               call ang2pix_ring(sky%nside, theta, phi, ipix)
+            else if(sky%pix_scheme == S2_SKY_NEST) then
+               call ang2pix_nest(sky%nside, theta, phi, ipix)
+            else
+               call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_extract_ab_mwss')
+            end if
+            
+            xtp(itheta, iphi) = sky%map(ipix)
+
+         end do
+         
+      end do
+
+    end subroutine s2_sky_extract_ab_mwss
 
 
     !--------------------------------------------------------------------------
@@ -5693,23 +5767,29 @@ module s2_sky_mod
     !   June 2010 - Written by Jason McEwen
     !--------------------------------------------------------------------------
 
-    subroutine s2_sky_write_matmap_file(sky, filename, B, optimal_grid, comment)
+    subroutine s2_sky_write_matmap_file(sky, filename, B, grid_type, comment)
 
       use pix_tools, only: pix2ang_ring, pix2ang_nest
 
       type(s2_sky), intent(in) :: sky
       character(len=*), intent(in) :: filename
       integer, intent(in) :: B
-      logical, intent(in), optional :: optimal_grid
+      integer, intent(in), optional :: grid_type
       character(len=*), intent(in), optional :: comment
 
       real(s2_dp) :: theta, phi
-      integer :: fileid, ipix, itheta, iphi, ntheta
+      integer :: fileid, ipix, itheta, iphi, ntheta, nphi
       integer :: fail = 0
-      logical :: optimal_grid_use
+      integer, parameter :: grid_type_default = S2_SKY_ABGRID_TYPE_MW
+      integer :: grid_type_use
       real(s2_dp), allocatable :: xtp(:,:)
 
-      optimal_grid_use = .true.
+      ! Set grid type.
+      if (present(grid_type)) then
+         grid_type_use = grid_type
+      else
+         grid_type_use = grid_type_default
+      end if
 
       ! Check object initialised.
       if(.not. sky%init) then
@@ -5722,24 +5802,43 @@ module s2_sky_mod
       end if
 
       ! Extract equi-angular sampled sphere to write to file.
-      if (present(optimal_grid)) optimal_grid_use = optimal_grid
-      if (optimal_grid_use) then
-         ntheta = B
-         allocate(xtp(0:ntheta-1,0:2*B-2), stat=fail)
-         if(fail /= 0) then 
-            call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
+      select case(grid_type_use)
+
+         case(S2_SKY_ABGRID_TYPE_S2DW)
+            ntheta = 2*B
+            nphi = 2*B-1
+            allocate(xtp(0:ntheta-1,0:nphi-1), stat=fail)
+            if(fail /= 0) then 
+               call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
+                    's2_sky_write_matmap_file')
+            end if
+            call s2_sky_extract_ab_s2dw(sky, xtp(0:ntheta-1,0:nphi-1), B)
+
+         case(S2_SKY_ABGRID_TYPE_MW)
+            ntheta = B
+            nphi = 2*B-1
+            allocate(xtp(0:ntheta-1,0:nphi-1), stat=fail)
+            if(fail /= 0) then 
+               call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
+                    's2_sky_write_matmap_file')
+            end if
+            call s2_sky_extract_ab_fssht(sky, xtp(0:ntheta-1,0:nphi-1), B)
+
+         case(S2_SKY_ABGRID_TYPE_MWSS)
+            ntheta = B+1
+            nphi = 2*B
+            allocate(xtp(0:ntheta-1,0:nphi-1), stat=fail)
+            if(fail /= 0) then 
+               call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
+                    's2_sky_write_matmap_file')
+            end if
+            call s2_sky_extract_ab_mwss(sky, xtp(0:ntheta-1,0:nphi-1), B)
+
+         case default
+            call s2_error(S2_ERROR_SKY_ABGRID_TYPE_INVALID, &
                  's2_sky_write_matmap_file')
-         end if
-         call s2_sky_extract_ab_fssht(sky, xtp(0:ntheta-1,0:2*B-2), B)
-      else
-         ntheta = 2*B
-         allocate(xtp(0:ntheta-1,0:2*B-2), stat=fail)
-         if(fail /= 0) then 
-            call s2_error(S2_ERROR_MEM_ALLOC_FAIL, &
-                 's2_sky_write_matmap_file')
-         end if
-         call s2_sky_extract_ab_s2dw(sky, xtp, B)
-      end if
+
+      end select
 
       ! Open file.
       fileid = 11
@@ -5749,15 +5848,31 @@ module s2_sky_mod
       ! Write to file.
       if(present(comment)) write(fileid,'(a,a)') '% ', trim(comment)
       do itheta = 0,ntheta-1
-         if (optimal_grid_use) then
-            theta = pi*(2.*itheta+1)/real(2*B-1,s2_dp)
-         else
-            theta = pi*(2*itheta+1)/real(4*B,s2_dp)
-         end if
-         theta = mod(theta, real(PI,s2_dp))
-         do iphi = 0,2*B-2
-            phi = 2*pi*iphi/real(2*B-1,s2_dp)
-            phi = mod(phi, real(2*PI,s2_dp))
+
+         select case(grid_type_use)
+            case(S2_SKY_ABGRID_TYPE_S2DW)
+               theta = pi*(2*itheta+1)/real(4*B,s2_dp)
+            case(S2_SKY_ABGRID_TYPE_MW)
+               theta = pi*(2.*itheta+1)/real(2*B-1,s2_dp)
+            case(S2_SKY_ABGRID_TYPE_MWSS)
+               theta = 2.0 * itheta * PI / real(2.0*B, s2_dp)
+            case default
+               call s2_error(S2_ERROR_SKY_ABGRID_TYPE_INVALID, &
+                    's2_sky_write_matmap_file')
+         end select
+         
+         do iphi = 0,nphi-1
+            select case(grid_type_use)
+               case(S2_SKY_ABGRID_TYPE_S2DW)
+                  phi = 2*pi*iphi/real(2*B-1,s2_dp)
+               case(S2_SKY_ABGRID_TYPE_MW)
+                  phi = 2*pi*iphi/real(2*B-1,s2_dp)
+               case(S2_SKY_ABGRID_TYPE_MWSS)
+                  phi = 2.0 * iphi * PI / real(2.0*B, s2_dp)
+               case default
+                  call s2_error(S2_ERROR_SKY_ABGRID_TYPE_INVALID, &
+                       's2_sky_write_matmap_file')
+            end select
             write(fileid,'(3e28.20)') theta, phi, xtp(itheta, iphi)
          end do
       end do

@@ -11,6 +11,7 @@
 !!   - [-ext extension]: Optional extension of HEALpix map fits file to read 
 !!     map from.
 !!   - [-B B]: Band-limit of sphere in written matlab map file.
+!!   - [-grid_type grid_type]: Type of ECP grid to covert to (s2dw; mw; mwss).
 !
 !! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
 !
@@ -21,6 +22,7 @@
 program s2_map2matmap
 
   use s2_types_mod
+  use s2_error_mod
   use s2_sky_mod
 
   implicit none
@@ -29,6 +31,10 @@ program s2_map2matmap
   type(s2_sky) :: sky
   integer :: ext = 1
   integer :: B = 128
+  character(len=*), parameter :: grid_type_str_s2dw = 's2dw'
+  character(len=*), parameter :: grid_type_str_mw = 'mw'
+  character(len=*), parameter :: grid_type_str_mwss = 'mwss'
+  character(len=S2_STRING_LEN) :: grid_type_str = grid_type_str_mw
 
   ! Parse input parameters.
   call parse_options()
@@ -37,7 +43,25 @@ program s2_map2matmap
   sky = s2_sky_init(filename_inp, S2_SKY_FILE_TYPE_MAP, ext)
 
   ! Write healpix map to matlab file.
-  call s2_sky_write_matmap_file(sky, filename_out, B)
+  select case (trim(grid_type_str))
+
+    case (grid_type_str_s2dw)
+       call s2_sky_write_matmap_file(sky, filename_out, B, &
+            grid_type=S2_SKY_ABGRID_TYPE_S2DW)
+
+    case (grid_type_str_mw)
+       call s2_sky_write_matmap_file(sky, filename_out, B, &
+            grid_type=S2_SKY_ABGRID_TYPE_MW)
+
+    case (grid_type_str_mwss)
+       call s2_sky_write_matmap_file(sky, filename_out, B, &
+            grid_type=S2_SKY_ABGRID_TYPE_MWSS)
+
+    case default
+       call s2_error(S2_ERROR_SKY_ABGRID_TYPE_INVALID, &
+            's2_map2matmap')
+
+  end select
 
   ! Free memory.
   call s2_sky_free(sky)
@@ -91,6 +115,7 @@ program s2_map2matmap
             write(*,'(a)') '                     [-out filename_out]'
             write(*,'(a)') '                     [-ext ext (optional)]'
             write(*,'(a)') '                     [-B B]'
+            write(*,'(a)') '                     [-grid_type grid_type (s2dw; mw; mwss)]'
             stop
           
           case ('-inp')
@@ -104,6 +129,9 @@ program s2_map2matmap
 
          case ('-B')
             read(arg,*) B
+
+          case ('-grid_type')
+            grid_type_str = trim(arg)
 
           case default
             print '("Unknown option ",a," ignored")', trim(opt)            
