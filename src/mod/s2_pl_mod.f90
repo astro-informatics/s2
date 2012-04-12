@@ -449,7 +449,7 @@ module s2_pl_mod
     !! Initiliase a pl with a Gaussian beam with specified full width half max.
     !!
     !! Notes:
-    !!   - Gaussian beam defined as exp(-l(l+1)*sigma2), where 
+    !!   - Gaussian beam defined as exp(-l(l+1)*sigma2 / 2.0), where 
     !!     sigma2 = fwhm**2.0e0 / (8.0e0 * log(2.0e0)).
     !!
     !! Variables:
@@ -602,7 +602,8 @@ module s2_pl_mod
     !!
     !! Variables:
     !!   - pl: Pl to convolve.
-    !!   - alm: Alm to convolve.  Overwritten with new alm on output.
+    !!   - alm: Alm to convolve.  Overwritten with new alm on output,
+    !!     where alm(el,m) = alm(el,m) * pl(el).
     !    
     !! @author J. D. McEwen 
     !! @version 0.1 August 2004
@@ -653,12 +654,13 @@ module s2_pl_mod
     !--------------------------------------------------------------------------
     ! s2_pl_conv_pl
     !
-    !! Convolve two power spectra.  Pl1 is overwritten with the convolved 
+    !! Convolve power spectrum and beam.  Pl1 is overwritten with the convolved 
     !! spectrum on output.  (Spectra must have same lmax.)
     !!
     !! Variables:
-    !!   - pl1: First pl to convolve.  Overwritten with new spectrum on output.
-    !!   - pl2: Second pl to convolve.
+    !!   - pl1: First pl to convolve.  Overwritten with new spectrum
+    !!     on output, where pl(el) = pl(el) * beam*el)**2.
+    !!   - beam: Beam to convolve with.
     !    
     !! @author J. D. McEwen 
     !! @version 0.1 May 2005
@@ -667,10 +669,10 @@ module s2_pl_mod
     !   May 2005 - Written by Jason McEwen
     !--------------------------------------------------------------------------
 
-    subroutine s2_pl_conv_pl(pl1, pl2)
+    subroutine s2_pl_conv_pl(pl1, beam)
 
       type(s2_pl), intent(inout) :: pl1
-      type(s2_pl), intent(in) :: pl2
+      type(s2_pl), intent(in) :: beam
 
       integer :: l
 
@@ -678,12 +680,12 @@ module s2_pl_mod
       if(.not. pl1%init) then
         call s2_error(S2_ERROR_NOT_INIT, 's2_pl_conv')
       end if
-      if(.not. pl2%init) then
+      if(.not. beam%init) then
         call s2_error(S2_ERROR_NOT_INIT, 's2_pl_conv')
       end if
 
       ! Check pls have same lmax.
-      if(pl1%lmax /= pl2%lmax) then
+      if(pl1%lmax /= beam%lmax) then
          call s2_error(S2_ERROR_PL_SIZE_INVALID, 's2_pl_conv', &
            comment_add='Spectra to convolve have inconsistent lmax')
          stop
@@ -691,7 +693,7 @@ module s2_pl_mod
 
       ! Perform convolution.
       do l = 0,pl1%lmax
-         pl1%pl(l) = pl1%pl(l) * pl2%pl(l)
+         pl1%pl(l) = pl1%pl(l) * beam%pl(l)**2
       end do
 
     end subroutine s2_pl_conv_pl
