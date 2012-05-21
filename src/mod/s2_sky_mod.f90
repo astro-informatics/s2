@@ -3509,7 +3509,9 @@ module s2_sky_mod
     !!  - ncetres: Number of centres found.
     !!  - cetres_theta: Theta position of centres found.
     !!  - cetres_phi: Phi position of centres found.
-    !!  - cetres_radius: Approximate radius of peak regions found.
+    !!  - cetres_radius: Approximate radius of peak regions found
+    !!    (approximately measured from the region centre to the outermost
+    !!    pixel edge, not outermost pixel centre).
     !!  - min_peak_area: Minimum area (in steradians) of a peak (all
     !!   peaks with area less than min_peak_area are discarded).
     !
@@ -3541,6 +3543,7 @@ module s2_sky_mod
       real(s2_sp), allocatable :: map(:)
       real(s2_dp) :: theta, phi
       real(s2_dp) :: theta_reg, phi_reg, theta_reg2, phi_reg2, dot, ang_sep
+      real(s2_dp) :: ang_pix
       real(s2_sp) :: mval
       type(s2_vect) :: vec0, vec1
       real(s2_sp) :: x0_sp(1:3)
@@ -3715,7 +3718,8 @@ module s2_sky_mod
                end do
                call s2_vect_free(vec0)
             end do
-            radius_buf(ncentres-1) = radius_buf(ncentres-1) / 2.0
+            ang_pix = sqrt(PI / 3.0) / real(nside, s2_dp);
+            radius_buf(ncentres-1) = (radius_buf(ncentres-1) + ang_pix) / 2.0
 
          end if
 
