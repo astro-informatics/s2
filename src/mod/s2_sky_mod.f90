@@ -71,7 +71,9 @@ module s2_sky_mod
     s2_sky_get_map_status, &
     s2_sky_get_alm_status, &
     s2_sky_get_n_param, &
-    s2_sky_get_param
+    s2_sky_get_param, &
+    s2_sky_conversion_real_to_complex, &
+    s2_sky_conversion_complex_to_real
 
 
   !---------------------------------------
@@ -5391,9 +5393,10 @@ module s2_sky_mod
         call s2_error(S2_ERROR_SKY_SIZE_INVALID, 's2_sky_valid_sizes')
       end if
 
-      if(sky%lmax > 3*sky%nside .or. sky%mmax < sky%lmax) then
-         call s2_error(S2_ERROR_SKY_SIZE_WARNING, 's2_sky_valid_sizes')
-      end if
+!warning removed (mmax=1<lmax is used for rotation)
+!      if(sky%lmax > 3*sky%nside .or. sky%mmax < sky%lmax) then
+!         call s2_error(S2_ERROR_SKY_SIZE_WARNING, 's2_sky_valid_sizes')
+!      end if
 
     end subroutine s2_sky_valid_sizes
 
@@ -7355,8 +7358,99 @@ module s2_sky_mod
       end if
 
       param = sky%param
-
+   
     end subroutine s2_sky_get_param
+
+
+    !-------------------------------------------------------------------------
+    ! s2_sky_conversion_real_to_complex
+    !
+    !! Convert the real alm coefficients
+    !! into the complex alm coefficients.
+    !!
+    !! Variables :
+    !!    - alm_real : matrix of the real coefficients to convert.
+    !!    - alm_complex : matrix of the final complex coefficients.
+    !!    - lmax : number of lines of the matrix.
+    !!    - mmax : number of columns of the matrix.
+    !!
+    !! @autor T. Josset
+    !! @version 0.1 May 2012
+    !-------------------------------------------------------------------------
+
+    subroutine s2_sky_conversion_real_to_complex(alm_real,alm_complex,lmax,mmax)
+
+      integer :: lmax, mmax
+      real(s2_sp), dimension(0:lmax,-lmax:lmax) :: alm_real
+      complex(s2_spc), dimension(0:lmax,0:lmax)  :: alm_complex
+      integer :: l,m
+
+      ! Check the size.
+      if (mmax>lmax) then
+         write(*,*) 'Error in s2_sky_conversion_real_to_complex : mmax>lmax'
+!!$      else if (size(alm_real,1)/=lmax+1 .or. size(alm_real,2)/=2*mmax+1) then
+!!$         write(*,*) 'Error in s2_sky_conversion_real_to_complex : &
+!!$                     wrong sizes for alm_real.'
+!!$         write(*,*)'size_l,size_m', size(alm_real,1), size(alm_real,2)
+!!$      else if (size(alm_complex,1)/=lmax+1 .or. size(alm_complex,2)/=mmax+1) then
+!!$         write(*,*) 'Error in s2_sky_conversion_real_to_complex : &
+!!$                     wrong sizes for alm_complex.'
+      else
+         do l=0, lmax
+            alm_complex(l,0)=alm_real(l,0)
+            do m=1, min(l,mmax)
+               alm_complex(l,m)=1/sqrt(2d0)*cmplx(alm_real(l,m),-alm_real(l,-m))
+            end do
+         end do
+      end if
+
+    end subroutine s2_sky_conversion_real_to_complex
+
+
+    !-------------------------------------------------------------------------
+    ! s2_sky_conversion_complex_to_real
+    !
+    !! Convert the complex alm coefficients (of a real field)
+    !! into the real alm coefficients.
+    !!
+    !! Variables :
+    !!    - alm_complex : matrix of the complex coefficients to convert.
+    !!    - alm_real : matrix of the final real coefficients.
+    !!    - lmax : number of lines of the matrix.
+    !!    - mmax : number of columns of the matrix.
+    !!
+    !! @autor T. Josset
+    !! @version 0.1 May 2012
+    !-------------------------------------------------------------------------
+
+    subroutine s2_sky_conversion_complex_to_real(alm_complex,alm_real,lmax,mmax)
+
+      integer :: lmax, mmax
+      real(s2_sp), dimension(0:lmax,-lmax:lmax) :: alm_real
+      complex(s2_spc), dimension(0:lmax,0:lmax)  :: alm_complex
+
+      integer :: l,m
+
+      ! Check the size.
+      if (mmax>lmax) then
+         write(*,*) 'Error in s2_sky_conversion_real_to_complex : mmax>lmax'
+!!$      else if (size(alm_real,1)/=lmax+1 .or. size(alm_real,2)/=2*mmax+1) then
+!!$         write(*,*) 'Error in s2_sky_conversion_complex_to_real : &
+!!$                     wrong sizes for alm_real.'
+!!$      else if (size(alm_complex,1)/=lmax+1 .or. size(alm_complex,2)/=mmax+1) then
+!!$         write(*,*) 'Error in s2_sky_conversion_complex_to_real : &
+!!$                     wrong sizes for alm_complex.'
+      else
+         do l=0, lmax
+            alm_real(l,0)=alm_complex(l,0)
+            do m=1, min(l,mmax)
+               alm_real(l, m)= sqrt(2d0) *  real(alm_complex(l,m))
+               alm_real(l,-m)=-sqrt(2d0) * aimag(alm_complex(l,m))
+            end do
+         end do
+      end if
+
+    end subroutine s2_sky_conversion_complex_to_real
 
 
 end module s2_sky_mod
