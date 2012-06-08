@@ -40,7 +40,7 @@ program s2_gcmb
   type(s2_cmb) :: cmb
   integer :: nside, lmin, lmax, ncomment, seed, fail = 0
   character(S2_STRING_LEN) :: filename_cl
-  character(S2_STRING_LEN) :: filename_out = 'gcmb.fits'
+  character(S2_STRING_LEN) :: filename_out = 'out.fits'
   logical :: scale_cl = .true.
   logical :: seed_set = .false.
   real(s2_sp) :: noise_var = 0.0e0, beam_fwhm = 0.0e0
@@ -59,7 +59,7 @@ program s2_gcmb
 
   ! Set default parameter values.
   nside = 512
-  lmax = 512
+  lmax = 1024
   lmin = 2
   ncomment = 29   ! Value required to read WMAP cl files.
   seed = 1

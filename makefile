@@ -10,8 +10,8 @@ USEPGPLOT = no
 # ======== COMPILER ========
 
 #FC      = nagfor
-#FC      = gfortran
-FC      = ifort
+FC      = gfortran
+#FC      = ifort
 #FC      = g95
 
 ifneq ($(USEPGPLOT),yes)
