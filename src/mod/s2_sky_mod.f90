@@ -5373,7 +5373,7 @@ module s2_sky_mod
     ! s2_sky_valid_sizes
     !
     !! Check the nside, lmax and mmax resolutions are valid.  Invalid if any
-    !! are negative.  Also warning given if lmax > 3*nside of mmax < lmax
+    !! are negative.  Also warning given if lmax > 3*nside.
     !!
     !! Variables:
     !!   - sky: Sky to check sizes of.
@@ -5393,10 +5393,9 @@ module s2_sky_mod
         call s2_error(S2_ERROR_SKY_SIZE_INVALID, 's2_sky_valid_sizes')
       end if
 
-!warning removed (mmax=1<lmax is used for rotation)
-!      if(sky%lmax > 3*sky%nside .or. sky%mmax < sky%lmax) then
-!         call s2_error(S2_ERROR_SKY_SIZE_WARNING, 's2_sky_valid_sizes')
-!      end if
+      if(sky%lmax > 3*sky%nside) then
+         call s2_error(S2_ERROR_SKY_SIZE_WARNING, 's2_sky_valid_sizes')
+      end if
 
     end subroutine s2_sky_valid_sizes
 
