@@ -7384,7 +7384,7 @@ module s2_sky_mod
       integer :: l,m
 
       ! Check the size.
-      if (mmax>lmax .or. mmax<0) then
+      if (mmax>lmax .or. mmax<0 .or. lmax<0) then
          call s2_error(S2_ERROR_SKY_SIZE_INVALID, &
               's2_sky_alm_convert_real_to_complex')
       else
@@ -7423,7 +7423,7 @@ module s2_sky_mod
       integer :: l,m
 
       ! Check the size.
-      if (mmax>lmax .or. mmax<0) then
+      if (mmax>lmax .or. mmax<0 .or. lmax<0) then
          call s2_error(S2_ERROR_SKY_SIZE_INVALID, &
               's2_sky_alm_convert_complex_to_real')
       else
