@@ -4136,6 +4136,11 @@ module s2_sky_mod
          phi_rot = s2_vect_get_phi(vect)
          call s2_vect_free(vect)
 
+         ! Remove numerical noise.
+         if (theta_rot < 0) theta_rot = 0.0
+         if (theta_rot > PI - 1d-7) theta_rot = PI - 1d-7
+         phi_rot = mod(phi_rot, 2.0*PI)
+
          ! Compute index corresponding to rotated coordinates.
          if(sky%pix_scheme == S2_SKY_RING) then
             call ang2pix_ring(sky%nside, theta_rot, phi_rot, ipix_rot)
@@ -4874,7 +4879,8 @@ module s2_sky_mod
       do itheta = 0,2*B-1
 
          theta = pi*(2*itheta+1)/real(4*B,s2_dp)
-         theta = mod(theta, real(PI,s2_dp))
+         if (theta < 0) theta = 0.0
+         if (theta > PI - 1d-7) theta = PI - 1d-7
 
          do iphi = 0,2*B-2
 
@@ -5013,8 +5019,9 @@ module s2_sky_mod
       
       ! Ensure angles in valid range.
       alpha = mod(alpha, 2.0d0*pi)
-      beta = mod(beta, real(pi,s2_dp))
-      
+      if (beta < 0) beta = 0.0
+      if (beta > PI - 1d-7) beta = PI - 1d-7
+
       ! Find bounding indices.
       i_a_interp = alpha * n_a / (2.0e0 * pi)
       i_a = floor(i_a_interp)
