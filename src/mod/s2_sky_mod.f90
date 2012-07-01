@@ -44,7 +44,7 @@ module s2_sky_mod
     s2_sky_conv_space_fovop, s2_sky_convpt_space_weights, &
     s2_sky_offset, s2_sky_scale, s2_sky_fun, &
     s2_sky_add, s2_sky_add_alm, s2_sky_product, s2_sky_thres, s2_sky_thres_abs, &
-    s2_sky_thres_peaks, s2_sky_region_max, &
+    s2_sky_thres_peaks, s2_sky_mask_overlap, s2_sky_region_max, &
     s2_sky_error_twonorm, s2_sky_rms, & 
     s2_sky_dilate, s2_sky_rotate, s2_sky_rotate_alm, &
     s2_sky_power_map, s2_sky_power_alm, &
@@ -3520,7 +3520,7 @@ module s2_sky_mod
     !! @author J. D. McEwen
     !
     ! Revisions:
-    !   December 2012 - Written by Jason McEwen
+    !   December 2011 - Written by Jason McEwen
     !--------------------------------------------------------------------------
 
     subroutine s2_sky_thres_peaks(sky, peak_radius, mask, &
@@ -3750,6 +3750,105 @@ module s2_sky_mod
       deallocate(disc_ipix, region_ipix)
 
     end subroutine s2_sky_thres_peaks
+
+
+    !--------------------------------------------------------------------------
+    ! s2_sky_mask_overlap
+    !
+    !! Compute proportion of region (defined by theta, phi and radius)
+    !! that overlaps with ones of mask.
+    !!
+    !! Variables:
+    !!  - mask: Sky containing binary map of mask.
+    !!  - theta: Theta centre defining region (in radians).
+    !!  - phi: Phi centre defining region (in radians).
+    !!  - radius: Radius defining region (in radians).
+    !!  - overlap: Proportion of region that overlaps with ones of mask.
+    !
+    !! @author J. D. McEwen
+    !
+    ! Revisions:
+    !   June 2012 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    function s2_sky_mask_overlap(mask, theta, phi, radius) result(overlap)
+
+      use pix_tools, only: query_disc
+
+      type(s2_sky), intent(in) :: mask
+      real(s2_dp), intent(in) :: theta, phi, radius
+      real(s2_dp) :: overlap
+
+      type(s2_vect) :: vec0, vec1
+      real(s2_sp) :: x0_sp(1:3)
+      real(s2_dp) :: x0_dp(1:3)
+      integer :: nest, ndisc, fail = 0
+      integer, allocatable :: disc_ipix(:)
+      real(s2_sp) :: map(:)
+      integer :: npix_region, npix_unmasked
+
+      ! Check object initialised.
+      if(.not. mask%init) then
+        call s2_error(S2_ERROR_NOT_INIT, 's2_sky_mask_overlap')
+      end if 
+
+      ! Check map defined.
+      if(.not. mask%map_status) then
+         call s2_error(S2_ERROR_SKY_MAP_NOT_DEF, 's2_sky_mask_overlap')
+         return
+      end if
+
+      ! Allocate buffers to store disc pixels.
+      allocate(disc_ipix(0:mask%npix-1), stat=fail)     
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_mask_overlap')
+      end if
+
+      ! Set pixel scheme for query disc.
+      if(mask%pix_scheme == S2_SKY_RING) then
+         nest = 0
+      else if(mask%pix_scheme == S2_SKY_NEST) then
+         nest = 1
+      else
+         call s2_error(S2_ERROR_SKY_PIX_INVALID, 's2_sky_mask_overlap')
+      end if
+
+      ! Compute cartesial coordinates of (theta,phi).
+      vec0 = s2_vect_init(1.0, real(theta,s2_sp), real(phi,s2_sp))
+      call s2_vect_convert(vec0, S2_VECT_TYPE_CART)
+      x0_sp = s2_vect_get_x(vec0)
+      x0_dp(1:3) = x0_sp(1:3)
+      call s2_vect_free(vec0)
+
+      ! Find all pixels within radius of position.
+      call query_disc(nside, x0_dp, radius, &
+           disc_ipix, ndisc, nest, inclusive=1)
+
+      ! Create binary map of region.
+      allocate(map(0:mask%npix-1), stat=fail)     
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_mask_overlap')
+      end if
+      map(0:mask%npix-1) = 0.0
+      do idisc = 0, ndisc-1
+         map(disc_ipix(idisc)) = 1.0
+      end do
+
+      ! Count number of pixels in region.
+      npix_region = sum(map(0:mask%npix-1))
+
+      ! Count number of pixels in unmasked region.
+      map(0:mask%npix-1) = map(0:mask%npix-1) * mask%map(0:mask%npix-1)
+      npix_unmasked = sum(map(0:mask%npix-1))
+
+      ! Compute overlap.
+      overlap = real(npix_unmasked, s2_dp) / real(npix_region, s2_dp)
+
+      ! Free memory.
+      deallocate(disc_ipix)
+      deallocate(map)
+
+    end function s2_sky_mask_overlap
 
 
     !--------------------------------------------------------------------------
