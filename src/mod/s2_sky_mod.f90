@@ -3782,9 +3782,9 @@ module s2_sky_mod
       type(s2_vect) :: vec0, vec1
       real(s2_sp) :: x0_sp(1:3)
       real(s2_dp) :: x0_dp(1:3)
-      integer :: nest, ndisc, fail = 0
+      integer :: nest, ndisc, idisc, fail = 0
       integer, allocatable :: disc_ipix(:)
-      real(s2_sp) :: map(:)
+      real(s2_sp), allocatable :: map(:)
       integer :: npix_region, npix_unmasked
 
       ! Check object initialised.
@@ -3821,7 +3821,7 @@ module s2_sky_mod
       call s2_vect_free(vec0)
 
       ! Find all pixels within radius of position.
-      call query_disc(nside, x0_dp, radius, &
+      call query_disc(mask%nside, x0_dp, radius, &
            disc_ipix, ndisc, nest, inclusive=1)
 
       ! Create binary map of region.

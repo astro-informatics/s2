@@ -10,7 +10,7 @@ USEPGPLOT = no
 # ======== COMPILER ========
 
 #FC      = nagfor
-FC      = gfortran
+FC      = gfortran44
 #FC      = ifort
 #FC      = g95
 
