@@ -28,6 +28,7 @@ module s2_pl_mod
   public :: &
     s2_pl_init, &
     s2_pl_init_guassian, &
+    s2_pl_init_pixel_window, &
     s2_pl_free, &
     s2_pl_add, &
     s2_pl_conv, &
@@ -471,7 +472,7 @@ module s2_pl_mod
       type(s2_pl) :: pl
       
       real(s2_sp) :: sigma2
-      integer :: l, fail
+      integer :: l, fail = 0
 
       ! Check object not already initialised.
       if(pl%init) then
@@ -500,6 +501,67 @@ module s2_pl_mod
       pl%init = .true.
 
     end function s2_pl_init_guassian
+
+
+    !--------------------------------------------------------------------------
+    ! s2_pl_init_pixel_window
+    !
+    !! Initiliase a pl with a pixel window function.
+    !!
+    !! Variables:
+    !!   - nside: Nside of the pixel window function.
+    !!   - lmax: Lmax of the constructed pl spectrum.
+    !!   - pl: Initialised pl with pixel window function.
+    !    
+    !! @author J. D. McEwen 
+    !! @version 0.1 February 2013
+    !
+    ! Revisions:
+    !   February 2013 - Written by Jason McEwen
+    !--------------------------------------------------------------------------
+
+    function s2_pl_init_pixel_window(nside, lmax) result(pl)
+
+      use alm_tools, only: pixel_window
+
+      integer, intent(in) :: nside
+      integer, intent(in) :: lmax
+      type(s2_pl) :: pl
+
+      real(s2_dp), allocatable :: pixlw(:,:)
+      integer :: el, fail = 0
+
+      ! Check object not already initialised.
+      if(pl%init) then
+        call s2_error(S2_ERROR_INIT, 's2_pl_init_gaussian')
+        return
+      end if
+
+      ! Set size.
+      pl%lmax = lmax
+
+      ! Allocate space.
+      allocate(pl%pl(0:pl%lmax), stat=fail)
+      pixlw(0:pl%lmax,1:1)
+      if(fail /= 0) then
+        call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_pl_init_gaussian')
+      end if
+
+      ! Generate pixel window function.
+      call pixel_window(pixlw(0:pl%lmax,1:1), nside)
+
+      ! Compute spectrum values.
+      do el = 0,lmax
+         pl%pl(el) = real(pixlw(el,1), s2_sp)
+      end do
+
+      ! Set initialised.
+      pl%init = .true.
+
+      ! Free temporary memory.
+      deallocate(pixlw)
+
+    end function s2_pl_init_pixel_window
 
 
     !--------------------------------------------------------------------------

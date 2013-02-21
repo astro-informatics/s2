@@ -138,6 +138,7 @@ prog:    $(S2BIN)/s2_nonzero     \
          $(S2BIN)/s2_gcmbcoad    \
          $(S2BIN)/s2_skyrot      \
          $(S2BIN)/s2_almrot      \
+         $(S2BIN)/s2_almbeam     \
          $(S2BIN)/s2_skyorder    \
          $(S2BIN)/s2_dlwrite     \
          $(S2BIN)/s2_skyerror    \
@@ -359,6 +360,11 @@ $(S2BIN)/s2_skyrot:          $(S2INC)/s2_skyrot.o
 $(S2INC)/s2_almrot.o:        $(S2PROG)/s2_almrot.f90 lib
 $(S2BIN)/s2_almrot:          $(S2INC)/s2_almrot.o
 	$(FC) -o $(S2BIN)/s2_almrot $(S2INC)/s2_almrot.o \
+	$(LDFLAGS) $(PPFLAGS) 
+
+$(S2INC)/s2_almbeam.o:        $(S2PROG)/s2_almbeam.f90 lib
+$(S2BIN)/s2_almbeam:          $(S2INC)/s2_almbeam.o
+	$(FC) -o $(S2BIN)/s2_almbeam $(S2INC)/s2_almbeam.o \
 	$(LDFLAGS) $(PPFLAGS) 
 
 $(S2INC)/s2_skyorder.o:        $(S2PROG)/s2_skyorder.f90 lib
