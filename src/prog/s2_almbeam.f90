@@ -24,10 +24,12 @@ program s2_almbeam
 
   use s2_types_mod
   use s2_sky_mod
+  use s2_pl_mod
+  use s2_vect_mod
 
   implicit none
 
-  character(len=S2_STRING_LEN) :: filename_alm, filename_beam
+  character(len=S2_STRING_LEN) :: filename_alm, filename_beam, filename_out
   type(s2_sky) :: sky
   type(s2_pl) :: beam, pixel_window
   logical :: gaussian_beam = .true.
@@ -49,11 +51,11 @@ program s2_almbeam
      if (gaussian_beam) then
 
         fwhm = s2_vect_arcmin_to_rad(fwhm_arcmin)
-        beam = s2_pl_init_gaussian(fwhm, s2_sky_get_lmax(sky))
+        beam = s2_pl_init_guassian(fwhm, s2_sky_get_lmax(sky))
 
      else
 
-        beam = s2_pl_init_file_fits(filename_beam)
+        beam = s2_pl_init(filename_beam)
 
      end if
 
@@ -82,7 +84,7 @@ program s2_almbeam
   end if
 
   ! Write beamed sky to file.
-  call s2_sky_write_alm_file(filename_out, sky)
+  call s2_sky_write_alm_file(sky, filename_out)
 
   ! Free memory.
   call s2_sky_free(sky)
@@ -169,4 +171,4 @@ program s2_almbeam
     end subroutine parse_options
 
 
-end program s2_alm2sky
+end program s2_almbeam

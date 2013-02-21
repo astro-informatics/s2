@@ -542,7 +542,7 @@ module s2_pl_mod
 
       ! Allocate space.
       allocate(pl%pl(0:pl%lmax), stat=fail)
-      pixlw(0:pl%lmax,1:1)
+      allocate(pixlw(0:pl%lmax,1:1), stat=fail)
       if(fail /= 0) then
         call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_pl_init_gaussian')
       end if
