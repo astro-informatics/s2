@@ -12,6 +12,8 @@
 !!   - [-fwhm fwhm (arcmin) (optional)]: Full-width-half-maximum (in arcmin) 
 !!     of Gaussian beam.
 !!   - [-nside_pixel_window (optional)]: HEALPix nside of map if to be computed.
+!!   - [-beam_ascii beam_ascii]: Logical to specify whether beam file is an ascii 
+!!     file.
 !
 !! @author J. D. McEwen (mcewen@mrao.cam.ac.uk)
 !! @version 0.1 - February 2013
@@ -37,6 +39,8 @@ program s2_almbeam
   logical :: apply_pixel_window = .false.
   integer :: nside_pixel_window
   real(s2_sp) :: fwhm, fwhm_arcmin = 13.2e0
+  logical :: beam_ascii = .false.
+  integer :: lmin = 0, ncomment = 0
 
   ! Parse input parameters.
   call parse_options()
@@ -54,8 +58,13 @@ program s2_almbeam
         beam = s2_pl_init_guassian(fwhm, s2_sky_get_lmax(sky))
 
      else
-
-        beam = s2_pl_init(filename_beam)
+        
+        if (beam_ascii) then
+           beam = s2_pl_init(filename_beam, lmin, s2_sky_get_lmax(sky), &
+                ncomment, scale_in = .false., line_nos_in = .true.)
+        else
+           beam = s2_pl_init(filename_beam)
+        end if
 
      end if
 
@@ -140,6 +149,7 @@ program s2_almbeam
             write(*,'(a)') '                  [-beam filename_beam (optional)]'
             write(*,'(a)') '                  [-fwhm fwhm (in arcmin) (optional)]'
             write(*,'(a)') '                  [-nside_pixel_window nside (optional)]'
+            write(*,'(a)') '                  [-beam_ascii beam_ascii]'
             stop
 
           case ('-inp')
@@ -162,6 +172,9 @@ program s2_almbeam
             read(arg,*) nside_pixel_window
             apply_pixel_window = .true.
 
+          case ('-beam_ascii')
+            read(arg,*) beam_ascii
+            
           case default
             print '("Unknown option ",a," ignored")', trim(opt)
 
