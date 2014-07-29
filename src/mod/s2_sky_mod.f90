@@ -854,8 +854,11 @@ module s2_sky_mod
 
       ! Set lmax and mmax from maximum values contained in alm_input
       ! l and m columns.
-      lmax = maxval(alm_input(:,1,1))
-      mmax = maxval(alm_input(:,2,1))
+      lmax = maxval(alm_input(:,1,1))     
+      !mmax = maxval(alm_input(:,2,1))
+
+      ! Not all m values may be stored in file so set mmax=lmax.
+      mmax = lmax
 
       ! Alternatively could use last l and m.
       ! lmax = alm_input(nalm,1,1)
@@ -872,14 +875,11 @@ module s2_sky_mod
       sky%alm = 0e0
 
       ! Copy input alm array values to sky object alm array.
-      i = 1
-      do l = 0,lmax
-         do m = 0,min(l,mmax)
-            sky%alm(l,m) = cmplx(alm_input(i,3,1), alm_input(i,4,1))
-            i = i + 1
-         end do
+      do i = 1,nalm
+         l = int(alm_input(i,1,1))
+         m = int(alm_input(i,2,1))
+         sky%alm(l,m) = cmplx(real(alm_input(i,3,1), kind=s2_sp), real(alm_input(i,4,1), kind=s2_sp))
       end do
-      i = i-1
 
       ! Initialise other sky attributes.
       sky%lmax = lmax
@@ -5779,11 +5779,12 @@ module s2_sky_mod
       character(len=*), intent(in) :: filename
       character(len=*), intent(in), optional :: comment
 
-      integer :: nalm, ncol, next, fail
+      integer :: nalm, ncol, fail
+      integer, parameter :: next = 1      
       integer :: l, m, i
       real(s2_sp), allocatable :: alm_output(:,:,:)
-      integer, parameter :: HEADER_LEN = 180
-      character(len=80) :: header(HEADER_LEN,1)
+      integer, parameter :: HEADER_LEN = 280
+      character(len=80) :: header(HEADER_LEN,1:next)
 
       ! Check object initialised.
       if(.not. sky%init) then
@@ -5798,20 +5799,20 @@ module s2_sky_mod
       ! Define sizes.
       nalm = (sky%lmax+1)*(sky%mmax+2)/2
       ncol = 3
-      next = 1
 
       ! Allocate space for output alm array.
       allocate(alm_output(1:nalm, 1:(ncol+1), 1:next), stat=fail)
       if(fail /= 0) then
          call s2_error(S2_ERROR_MEM_ALLOC_FAIL, 's2_sky_write_alm_file')
       end if
+      alm_output(1:nalm, 1:(ncol+1), 1:next) = 0.0e0
 
       ! Format alm array for output.
       i = 1
       do l = 0,sky%lmax
          do m = 0,min(l,sky%mmax)
-            alm_output(i,1,1) = l
-            alm_output(i,2,1) = m
+            alm_output(i,1,1) = real(l, s2_sp)
+            alm_output(i,2,1) = real(m, s2_sp)
             alm_output(i,3,1) = real(sky%alm(l,m), s2_sp)
             alm_output(i,4,1) = real(aimag(sky%alm(l,m)), s2_sp)
             i = i + 1
