@@ -16,13 +16,14 @@ DESCRIPTION
      support other pixelisations of the sphere.
 
 VERSION
-     Release 1.0, 1 July 2008
+     Release 1.1
 
 AUTHORS
-     J. D. McEwen  (mcewen@mrao.cam.ac.uk)
+     J. D. McEwen  (http://www.jasonmcewen.org)
 
 ACKNOWLEDGEMENTS
      D. J. Mortlock
+     S. M. Feeney
 
 REFERENCE
      The s2 package was written originally for the development of fast
@@ -37,24 +38,24 @@ REFERENCE
        2007 (astro-ph/0506308).
 
 DOCUMENTATION
-     See doc/index_s2.html
+     See doc/index.html
 
 REQUIREMENTS
      HEALPix (http://healpix.jpl.nasa.gov/)
      CFITSIO (http://heasarc.gsfc.nasa.gov/docs/software/fitsio/)
 
 INSTALLATION
-     See doc/index_s2.html
+     See doc/index.html
 
 DOWNLOAD
-     http://www.mrao.cam.ac.uk/~jdm57/
+     http://www.jasonmcewen.org/codes.html
 
 SUPPORT
-     Contact Jason McEwen (mcewen@mrao.cam.ac.uk)
+     Contact Jason McEwen (http://www.jasonmcewen.org)
 
 NOTE
      The package is still under development
-     Please report problems/bugs by email to: mcewen@mrao.cam.ac.uk
+     Please report problems/bugs by email to Jason McEwen
 
 LICENSE
      s2 package to provide object oriented functionality for
